@@ -1,0 +1,8 @@
+{
+  "name": "awareCare - Family Patient Monitoring",
+  "description": "Smart daily monitoring for Alzheimer patients. Track deterioration, update medical files, and consult experts instantly.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
