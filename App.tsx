@@ -934,12 +934,6 @@ const Home: React.FC<{
             size="w-32 h-32"
           />
         </div>
-
-        <CloudBubble
-          label={t("exportPdf")}
-          onClick={() => {}}
-          size="w-28 h-28"
-        />
       </div>
     </div>
   );
