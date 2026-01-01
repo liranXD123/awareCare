@@ -94,6 +94,7 @@ const SideMenu: React.FC<{
     { label: t("quickView"), path: "/quick-view", icon: "👁️" },
     { label: t("myDoctor"), path: "/doctor", icon: "👨‍⚕️" },
     { label: t("liveMedicalFile"), path: "/medical-file", icon: "📁" },
+    { label: t("journal"), path: "/journal", icon: "📅" },
     { label: t("statusAssessment"), path: "/wizard", icon: "📝" },
     { label: t("tutorial"), path: "/tutorial", icon: "🎓" },
     { label: t("contactUs"), path: "/contact", icon: "📞" },
@@ -174,12 +175,82 @@ const CloudBubble: React.FC<{
 const QuickView: React.FC<{ lang: Language }> = ({ lang }) => {
   const navigate = useNavigate();
   const t = (key: string) => translations[key]?.[lang] || key;
+  const isHe = lang === "he";
+
+  const activeMeds = buildActiveMeds(lang);
+  const stoppedMeds = buildStoppedMeds(lang);
+
+  const formatTodayLocal = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const parseTimesLocal = (timeStr: string) =>
+    (timeStr || "")
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .filter((t) => /^\d{2}:\d{2}$/.test(t));
+
+  const todayStr = formatTodayLocal();
+  const nowStr = `${String(new Date().getHours()).padStart(2, "0")}:${String(
+    new Date().getMinutes()
+  ).padStart(2, "0")}`;
+
+  const todaySchedule = activeMeds
+    .flatMap((m) =>
+      parseTimesLocal(m.time).map((time) => ({
+        time,
+        title: `${m.name} ${m.dose}`,
+        notes: m.freq,
+      }))
+    )
+    .sort((a, b) => a.time.localeCompare(b.time));
+
+  const nextDose =
+    todaySchedule.find((e) => e.time >= nowStr) || todaySchedule[0] || null;
+
+  // Dementia-specific believable data
+  const feedItems = [
+    {
+      id: 1,
+      date: "24/07/2025",
+      title: { he: "אריספט (Donepezil) 10mg", en: "Aricept (Donepezil) 10mg" },
+      sub: { he: "נטילת תרופה - ערב", en: "Medication Intake - Evening" },
+      type: "med",
+      status: { he: "מרשם בתוקף", en: "Active Prescription" },
+    },
+    {
+      id: 2,
+      date: "21/07/2025",
+      title: { he: "ד״ר אורי גרינברג", en: "Dr. Uri Greenberg" },
+      sub: {
+        he: "מעקב פסיכוגריאטרי - מרפאת זיכרון",
+        en: "Psychogeriatric Follow-up - Memory Clinic",
+      },
+      type: "appointment",
+      status: { he: "תור עתידי", en: "Upcoming Appointment" },
+    },
+    {
+      id: 3,
+      date: "15/07/2025",
+      title: { he: "בדיקת דם תקופתית", en: "Routine Blood Test" },
+      sub: { he: "מעבדה - רמת ויטמין B12", en: "Lab - B12 Levels" },
+      type: "lab",
+      hasAttachment: true,
+      status: { he: "תוצאה תקינה", en: "Normal Result" },
+    },
+  ];
 
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white">
-      <div className="flex items-center gap-4 mb-10">
+    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-8">
         <button
-          onClick={() => window.history.back()}
+          onClick={() => navigate("/")}
           className="p-3 bg-[#D6F3F4] rounded-full shadow-sm text-[#172A3A] hover:bg-[#C2EBF0]"
         >
           <svg
@@ -200,23 +271,160 @@ const QuickView: React.FC<{ lang: Language }> = ({ lang }) => {
           {t("quickView")}
         </h2>
       </div>
-      <div className="space-y-4">
-        <div className="bg-[#D6F3F4] p-8 rounded-[40px] border border-[#74B3CE]/20 space-y-4">
-          <h3 className="text-xl font-black text-[#508991]">
-            {t("recentActivity")}
+
+      {/* Top Summary Card (AwareCare Original Style) */}
+      <div className="bg-[#172A3A] text-white p-8 rounded-[40px] shadow-lg mb-8 relative overflow-hidden">
+        <div className="relative z-10">
+          <h3 className="font-black text-xl mb-2 text-[#D6F3F4]">
+            {t("clinicalSummary")}
           </h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center bg-white/50 p-4 rounded-2xl">
-              <span>{t("statusSnapshot")}</span>
-              <span className="text-sm text-slate-500">08:30</span>
+          <p className="text-xs opacity-80 leading-relaxed max-w-[80%]">
+            {isHe
+              ? "יציבות קוגניטיבית נשמרת. מומלץ להקפיד על שתייה מרובה בשעות הבוקר עקב ערכי לחץ דם נמוכים שנמדדו."
+              : "Cognitive stability maintained. Recommended to ensure high fluid intake in the morning due to low BP readings."}
+          </p>
+        </div>
+        <div className="absolute -right-4 -bottom-4 opacity-10">
+          <Logo className="w-32 h-32" />
+        </div>
+      </div>
+
+      {/* Medication Snapshot (Synced with Meds & Prescriptions) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+        <div className="ac-card bg-[#D6F3F4] rounded-[32px] p-6 border border-[#74B3CE]/20 shadow-sm ac-card">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h4 className="text-[#172A3A] font-black tracking-tight">
+                {isHe ? "תרופות (נלקחות כיום)" : "Active Medications"}
+              </h4>
+              <p className="text-xs text-slate-500 font-bold mt-1">
+                {isHe
+                  ? `${activeMeds.length} תרופות פעילות • ${stoppedMeds.length} הופסקו`
+                  : `${activeMeds.length} active • ${stoppedMeds.length} stopped`}
+              </p>
             </div>
-            <div className="flex justify-between items-center bg-white/50 p-4 rounded-2xl">
-              <span>{t("medications")}</span>
-              <span className="text-sm text-slate-500">20:00</span>
+            <button
+              onClick={() => navigate("/medical-file/meds")}
+              className="text-xs font-black px-4 py-2 rounded-full bg-white text-[#508991] hover:bg-[#C2EBF0] transition"
+            >
+              {isHe ? "לפרטים" : "Details"}
+            </button>
+          </div>
+
+          <div className="mt-4">
+            <div className="text-xs text-slate-500 font-bold mb-2">
+              {isHe ? "המנה הבאה" : "Next dose"}
             </div>
+            {nextDose ? (
+              <div className="flex items-center justify-between gap-3">
+                <span className="px-3 py-1 rounded-full bg-white text-[#508991] text-xs font-black">
+                  {nextDose.time}
+                </span>
+                <span className="text-sm font-black text-[#172A3A] truncate">
+                  {nextDose.title}
+                </span>
+              </div>
+            ) : (
+              <div className="text-sm font-black text-[#172A3A]">
+                {isHe ? "אין זמני נטילה היום" : "No scheduled doses today"}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="ac-card bg-white rounded-[32px] p-6 border border-slate-100 shadow-sm ac-card">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h4 className="text-[#172A3A] font-black tracking-tight">
+                {isHe ? "יומן" : "Journal"}
+              </h4>
+              <p className="text-xs text-slate-500 font-bold mt-1">
+                {isHe
+                  ? "תזכורות נטילה • התחלת תרופה • מעקב לרופא"
+                  : "Dose reminders • New med start • Doctor sync"}
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/journal")}
+              className="text-xs font-black px-4 py-2 rounded-full bg-[#D6F3F4] text-[#508991] hover:bg-[#C2EBF0] transition"
+            >
+              {isHe ? "פתח יומן" : "Open"}
+            </button>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="text-sm font-black text-[#172A3A]">
+              {isHe ? "עודכן" : "Updated"}
+            </div>
+            <div className="text-xs font-bold text-slate-500">{todayStr}</div>
+          </div>
+
+          <div className="mt-3 text-xs text-slate-500 font-bold">
+            {isHe
+              ? "שיתוף עם הרופא זמין דרך ייצוא ליומן (ICS)"
+              : "Doctor sync available via calendar export (ICS)"}
           </div>
         </div>
       </div>
+
+      {/* Timeline Feed (Inspired by provided images) */}
+      <div className="space-y-0 relative">
+        {feedItems.map((item, idx) => (
+          <div
+            key={item.id}
+            className="relative flex group ac-fade-up"
+            style={{ animationDelay: `${idx * 70}ms` }}
+          >
+            {/* Vertical Timeline Line and Dot */}
+            <div
+              className={`absolute ${
+                isHe ? "right-0" : "left-0"
+              } top-0 bottom-0 w-[2px] bg-rose-100`}
+            >
+              <div className="absolute top-8 -translate-x-1/2 left-1/2 w-3 h-3 bg-rose-300 rounded-full border-2 border-white shadow-sm z-10" />
+            </div>
+
+            {/* Content Card */}
+            <div
+              className={`flex-1 ${
+                isHe ? "mr-8" : "ml-8"
+              } py-6 border-b border-slate-100 flex justify-between items-start active:bg-slate-50 transition-colors rounded-xl px-2`}
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  {item.hasAttachment && (
+                    <span className="text-slate-400 text-sm">📎</span>
+                  )}
+                  <p className="font-black text-lg text-[#172A3A] leading-tight">
+                    {item.title[lang]}
+                  </p>
+                </div>
+                <p className="text-sm font-bold text-[#508991]">
+                  {item.sub[lang]}
+                </p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {item.status[lang]}
+                </p>
+              </div>
+
+              <div className="text-right flex flex-col items-end gap-4">
+                <span className="text-xs font-black text-slate-400 whitespace-nowrap">
+                  {item.date}
+                </span>
+                <span className="text-[#D6F3F4] group-hover:text-[#508991] transition-colors">
+                  {isHe ? "〈" : "〉"}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Floating Action Button (As seen in the image) */}
+      <button className="fixed bottom-32 left-8 right-8 bg-[#172A3A] text-white p-5 rounded-[32px] font-black shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform z-50">
+        <span className="text-2xl">+</span>
+        <span>{isHe ? "פעולות מהירות" : "Quick Actions"}</span>
+      </button>
     </div>
   );
 };
@@ -224,7 +432,7 @@ const QuickView: React.FC<{ lang: Language }> = ({ lang }) => {
 const DoctorContact: React.FC<{ lang: Language }> = ({ lang }) => {
   const t = (key: string) => translations[key]?.[lang] || key;
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white">
+    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
       <div className="flex items-center gap-4 mb-10">
         <button
           onClick={() => window.history.back()}
@@ -269,34 +477,528 @@ const DoctorContact: React.FC<{ lang: Language }> = ({ lang }) => {
 
 // --- Medical File Views with Dummy Data ---
 
-const MedicationsView: React.FC<{ lang: Language }> = ({ lang }) => {
-  const t = (key: string) => translations[key]?.[lang] || key;
-  const meds = [
+type ActiveMedication = {
+  name: string;
+  dose: string;
+  time: string; // e.g. "08:00, 18:00"
+  freq: string;
+  type: string;
+};
+
+type MedicationHistoryItem = {
+  name: string;
+  dose: string;
+  stopDate: string;
+  reason: string;
+};
+
+const buildActiveMeds = (lang: Language): ActiveMedication[] => {
+  const isHe = lang === "he";
+  return [
     {
-      name: t("memorit"),
-      dose: "10mg",
-      time: t("morning"),
-      freq: t("daily"),
-      type: t("pill"),
+      name: isHe ? "נקסיום" : "Nexium",
+      dose: isHe ? "20 מ״ג" : "20mg",
+      time: "08:00, 18:00",
+      freq: isHe ? "2 ביום" : "Twice daily",
+      type: isHe ? "כדור" : "Pill",
     },
     {
-      name: t("cipralex"),
-      dose: "10mg",
-      time: t("evening"),
-      freq: t("daily"),
-      type: t("pill"),
+      name: isHe ? "טריטייס" : "Tritace",
+      dose: isHe ? "5 מ״ג" : "5mg",
+      time: "08:00",
+      freq: isHe ? "1 ביום" : "Once daily",
+      type: isHe ? "כדור" : "Pill",
     },
     {
-      name: t("aspirin"),
-      dose: "100mg",
-      time: t("morning"),
-      freq: t("daily"),
-      type: t("pill"),
+      name: isHe ? "אומניק אוקאס" : "Omnic Ocas",
+      dose: isHe ? "0.4 מ״ג" : "0.4mg",
+      time: "08:00",
+      freq: isHe ? "1 ביום" : "Once daily",
+      type: isHe ? "כדור" : "Pill",
+    },
+    {
+      name: isHe ? "אנברל" : "Enbrel",
+      dose: isHe ? "50 מ״ג" : "50mg",
+      time: isHe ? "יום קבוע" : "Fixed day",
+      freq: isHe ? "זריקה פעם בשבוע" : "Weekly injection",
+      type: isHe ? "זריקה" : "Injection",
+    },
+    {
+      name: isHe ? "חומצה פולית" : "Folic Acid",
+      dose: isHe ? "—" : "—",
+      time: "08:00",
+      freq: isHe ? "1 ביום" : "Once daily",
+      type: isHe ? "תוסף" : "Supplement",
+    },
+    {
+      name: isHe ? "פלאביקס" : "Plavix",
+      dose: isHe ? "75 מ״ג" : "75mg",
+      time: "08:00",
+      freq: isHe ? "1 ביום" : "Once daily",
+      type: isHe ? "כדור" : "Pill",
+    },
+    {
+      name: isHe ? "פנרגן" : "Phenergan",
+      dose: isHe ? "—" : "—",
+      time: "08:00, 13:00, 18:00",
+      freq: isHe ? "3 ביום" : "3 times daily",
+      type: isHe ? "כדור" : "Pill",
+    },
+    {
+      name: isHe ? "קלופיקסול" : "Clopixol",
+      dose: isHe ? "200 מ״ל" : "200ml",
+      time: isHe ? "תאריך קבוע" : "Scheduled",
+      freq: isHe ? "זריקה פעם בחודש" : "Monthly injection",
+      type: isHe ? "זריקה" : "Injection",
+    },
+    {
+      name: isHe ? "ארטן" : "Artane",
+      dose: isHe ? "—" : "—",
+      time: "08:00, 13:00",
+      freq: isHe ? "2 ביום" : "Twice daily",
+      type: isHe ? "כדור" : "Pill",
     },
   ];
+};
+
+const buildStoppedMeds = (lang: Language): MedicationHistoryItem[] => {
+  const isHe = lang === "he";
+  return [
+    {
+      name: isHe ? "ריספרדל" : "Risperdal",
+      dose: isHe ? "0.25 מ״ג" : "0.25mg",
+      stopDate: "—",
+      reason: isHe ? "הופסק • מחמיר מצב רוח" : "Stopped • Worsens mood",
+    },
+    {
+      name: isHe ? "ובן" : "Ben",
+      dose: isHe ? "10 מ״ג" : "10mg",
+      stopDate: "—",
+      reason: isHe ? "הופסק • מחמיר מצב רוח" : "Stopped • Worsens mood",
+    },
+    {
+      name: isHe ? "דונפזיל" : "Donepezil",
+      dose: isHe ? "5 מ״ג" : "5mg",
+      stopDate: "—",
+      reason: isHe ? "הופסק • השפעה קצרה" : "Stopped • Short effect",
+    },
+    {
+      name: isHe ? "מירטזפין" : "Mirtazapine",
+      dose: isHe ? "30 מ״ג" : "30mg",
+      stopDate: "—",
+      reason: isHe ? "הופסק • השפעה קצרה" : "Stopped • Short effect",
+    },
+    {
+      name: isHe ? "ציפרלקס" : "Cipralex",
+      dose: isHe ? "10 מ״ג" : "10mg",
+      stopDate: "—",
+      reason: isHe ? "הופסק • תמה ההשפעה" : "Stopped • Effect ended",
+    },
+    {
+      name: isHe ? "פוסאבנס" : "Fosavance",
+      dose: isHe ? "70 מ״ג" : "70mg",
+      stopDate: "—",
+      reason: isHe ? "הופסק • תמה ההשפעה" : "Stopped • Effect ended",
+    },
+    {
+      name: isHe ? "יו־לקטין פורטה" : "U‑Lactin Forte",
+      dose: isHe ? "—" : "—",
+      stopDate: "—",
+      reason: isHe ? "הופסק" : "Stopped",
+    },
+  ];
+};
+
+type CalendarEventType = "NEW_MED_START" | "MED_TIME";
+type CalendarEvent = {
+  id: string;
+  type: CalendarEventType;
+  title: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:MM
+  notes?: string;
+};
+
+const CALENDAR_STORAGE_KEY = "awarecare_calendar_events_v1";
+
+const formatToday = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const parseTimes = (timeField: string): string[] => {
+  // expected "08:00, 18:00" -> ["08:00","18:00"]
+  return (timeField || "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => /^\d{2}:\d{2}$/.test(t));
+};
+
+const downloadIcs = (lang: Language, events: CalendarEvent[]) => {
+  const isHe = lang === "he";
+  const header = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//AwareCare//Journal//EN",
+    "CALSCALE:GREGORIAN",
+  ];
+
+  const lines: string[] = [...header];
+
+  for (const e of events) {
+    const uid = e.id.replace(/\s+/g, "-");
+    const dt = e.time
+      ? `${e.date.replaceAll("-", "")}T${e.time.replace(":", "")}00`
+      : `${e.date.replaceAll("-", "")}T090000`;
+
+    lines.push("BEGIN:VEVENT");
+    lines.push(`UID:${uid}@awarecare`);
+    lines.push(`DTSTART:${dt}`);
+    lines.push(`SUMMARY:${e.title}`);
+    if (e.notes) lines.push(`DESCRIPTION:${e.notes}`);
+    lines.push("END:VEVENT");
+  }
+
+  lines.push("END:VCALENDAR");
+
+  const blob = new Blob([lines.join("\r\n")], {
+    type: "text/calendar;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = isHe ? "awarecare_יומן.ics" : "awarecare_journal.ics";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const JournalView: React.FC<{ lang: Language }> = ({ lang }) => {
+  const t = (key: string) => translations[key]?.[lang] || key;
+  const isHe = lang === "he";
+
+  const activeMeds = buildActiveMeds(lang);
+  const todayStr = formatToday();
+
+  const [events, setEvents] = useState<CalendarEvent[]>(() => {
+    try {
+      const raw = localStorage.getItem(CALENDAR_STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as CalendarEvent[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CALENDAR_STORAGE_KEY, JSON.stringify(events));
+    } catch {
+      // ignore
+    }
+  }, [events]);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [draftType, setDraftType] = useState<CalendarEventType>("MED_TIME");
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftDate, setDraftDate] = useState(todayStr);
+  const [draftTime, setDraftTime] = useState("08:00");
+  const [draftNotes, setDraftNotes] = useState("");
+
+  const scheduledToday: CalendarEvent[] = activeMeds
+    .flatMap((m) => {
+      const times = parseTimes(m.time);
+      return times.map((time) => ({
+        id: `${m.name}-${todayStr}-${time}`,
+        type: "MED_TIME" as const,
+        title: `${m.name} ${m.dose}`,
+        date: todayStr,
+        time,
+        notes: m.freq,
+      }));
+    })
+    .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+
+  const customToday = events
+    .filter((e) => e.date === todayStr)
+    .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+
+  const allToday = [...scheduledToday, ...customToday].sort((a, b) =>
+    (a.time || "").localeCompare(b.time || "")
+  );
+
+  const openModal = (type: CalendarEventType) => {
+    setDraftType(type);
+    setDraftTitle("");
+    setDraftDate(todayStr);
+    setDraftTime("08:00");
+    setDraftNotes("");
+    setIsModalOpen(true);
+  };
+
+  const saveEvent = () => {
+    if (!draftTitle.trim()) return;
+
+    const id = `evt-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const newEvent: CalendarEvent = {
+      id,
+      type: draftType,
+      title: draftTitle.trim(),
+      date: draftDate,
+      time: draftType === "MED_TIME" ? draftTime : undefined,
+      notes: draftNotes.trim() || undefined,
+    };
+    setEvents((prev) => [newEvent, ...prev]);
+    setIsModalOpen(false);
+  };
+
+  const deleteEvent = (id: string) => {
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+  };
 
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white">
+    <div className="px-10 py-10">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-2xl font-bold text-[#172A3A]">{t("journal")}</h2>
+          <p className="text-slate-500 font-medium mt-1">
+            {isHe
+              ? "מעקב אחר התחלת תרופות וזמני נטילה (ניתן לשתף עם הרופא)"
+              : "Track new medications and intake times (shareable with your doctor)"}
+          </p>
+        </div>
+
+        <button
+          onClick={() => downloadIcs(lang, [...events, ...scheduledToday])}
+          className="px-5 py-3 rounded-full bg-[#74B3CE] text-white font-bold shadow-sm hover:opacity-95 transition"
+        >
+          {isHe ? "סנכרון עם הרופא (יומן)" : "Sync with Doctor (Calendar)"}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <div className="p-6 bg-white rounded-[32px] border border-[#74B3CE]/20 shadow-sm ac-card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-[#172A3A]">
+                {isHe ? "לוח זמנים להיום" : "Today's Schedule"}
+              </h3>
+              <span className="text-sm font-bold text-slate-400">
+                {todayStr}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {allToday.length === 0 ? (
+                <div className="text-slate-400 font-medium">
+                  {isHe ? "אין אירועים להיום" : "No events for today"}
+                </div>
+              ) : (
+                allToday.map((e) => (
+                  <div
+                    key={e.id}
+                    className="p-5 bg-[#D6F3F4] rounded-[28px] border border-[#74B3CE]/20 shadow-sm flex items-start justify-between gap-4"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-[#172A3A] font-extrabold">
+                        {e.title}
+                      </div>
+                      {e.notes ? (
+                        <div className="text-slate-500 font-semibold text-sm mt-1">
+                          {e.notes}
+                        </div>
+                      ) : null}
+                      <div className="text-xs font-bold text-[#508991] mt-2">
+                        {e.type === "NEW_MED_START"
+                          ? isHe
+                            ? "התחלת תרופה חדשה"
+                            : "New medication start"
+                          : isHe
+                          ? "זמן קבלת תרופות"
+                          : "Medication time"}
+                      </div>
+                    </div>
+
+                    <div className="min-w-[150px] flex flex-col items-end text-right">
+                      <span className="block px-3 py-1 bg-white rounded-full text-xs font-bold text-[#508991] leading-none">
+                        {e.time || (isHe ? "כל היום" : "All day")}
+                      </span>
+
+                      {/* Delete only custom events */}
+                      {events.some((x) => x.id === e.id) ? (
+                        <button
+                          onClick={() => deleteEvent(e.id)}
+                          className="text-xs font-bold text-slate-400 mt-2 hover:text-red-500 transition"
+                        >
+                          {isHe ? "מחיקה" : "Delete"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-1">
+          <div className="p-6 bg-white rounded-[32px] border border-[#74B3CE]/20 shadow-sm ac-card">
+            <h3 className="text-lg font-bold text-[#172A3A] mb-4">
+              {isHe ? "הוספת אירוע" : "Add Event"}
+            </h3>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => openModal("NEW_MED_START")}
+                className="w-full px-5 py-4 rounded-[24px] bg-[#74B3CE] text-white font-extrabold shadow-sm hover:opacity-95 transition"
+              >
+                {isHe ? "התחלת תרופה חדשה" : "New Medication Start"}
+              </button>
+
+              <button
+                onClick={() => openModal("MED_TIME")}
+                className="w-full px-5 py-4 rounded-[24px] bg-[#508991] text-white font-extrabold shadow-sm hover:opacity-95 transition"
+              >
+                {isHe ? "זמן קבלת תרופות" : "Medication Intake Time"}
+              </button>
+
+              <div className="pt-3 text-sm text-slate-500 font-medium">
+                {isHe
+                  ? "טיפ: הוסף אירועים חריגים (שינוי מינון, התחלה/הפסקה) כדי שהרופא יראה תמונה מלאה."
+                  : "Tip: Add changes (new meds, dose changes) for a complete doctor view."}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal */}
+      {isModalOpen ? (
+        <div className="fixed inset-0 z-[80] bg-[#172A3A]/50 backdrop-blur-sm flex items-center justify-center px-6">
+          <div className="w-full max-w-lg bg-white rounded-[32px] shadow-2xl border border-[#74B3CE]/20 p-8">
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-xl font-extrabold text-[#172A3A]">
+                  {draftType === "NEW_MED_START"
+                    ? isHe
+                      ? "התחלת תרופה חדשה"
+                      : "New Medication Start"
+                    : isHe
+                    ? "זמן קבלת תרופות"
+                    : "Medication Intake Time"}
+                </h3>
+                <p className="text-slate-500 font-medium mt-1">
+                  {isHe
+                    ? "מלא פרטים כדי להוסיף ליומן."
+                    : "Fill details to add to the journal."}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="w-10 h-10 rounded-full bg-slate-100 font-bold text-slate-500 hover:bg-slate-200 transition"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-600 mb-1">
+                  {isHe ? "כותרת" : "Title"}
+                </label>
+                <input
+                  value={draftTitle}
+                  onChange={(e) => setDraftTitle(e.target.value)}
+                  placeholder={
+                    draftType === "NEW_MED_START"
+                      ? isHe
+                        ? "לדוגמה: התחלת נקסיום"
+                        : "e.g., Start Nexium"
+                      : isHe
+                      ? "לדוגמה: נטילת פלאביקס"
+                      : "e.g., Take Plavix"
+                  }
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-semibold outline-none focus:ring-2 focus:ring-[#74B3CE]/30"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-600 mb-1">
+                    {isHe ? "תאריך" : "Date"}
+                  </label>
+                  <input
+                    type="date"
+                    value={draftDate}
+                    onChange={(e) => setDraftDate(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-semibold outline-none focus:ring-2 focus:ring-[#74B3CE]/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-slate-600 mb-1">
+                    {isHe ? "שעה" : "Time"}
+                  </label>
+                  <input
+                    type="time"
+                    value={draftTime}
+                    onChange={(e) => setDraftTime(e.target.value)}
+                    disabled={draftType !== "MED_TIME"}
+                    className={`w-full px-4 py-3 rounded-2xl border border-slate-200 font-semibold outline-none focus:ring-2 focus:ring-[#74B3CE]/30 ${
+                      draftType !== "MED_TIME"
+                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                        : "bg-slate-50"
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-600 mb-1">
+                  {isHe ? "הערות" : "Notes"}
+                </label>
+                <textarea
+                  value={draftNotes}
+                  onChange={(e) => setDraftNotes(e.target.value)}
+                  placeholder={
+                    isHe
+                      ? "לדוגמה: תופעות לוואי, שינוי מינון, הערה לרופא..."
+                      : "e.g., side effects, dose changes, note for doctor..."
+                  }
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-semibold outline-none focus:ring-2 focus:ring-[#74B3CE]/30 min-h-[110px]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-5 py-3 rounded-full bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition"
+                >
+                  {isHe ? "ביטול" : "Cancel"}
+                </button>
+                <button
+                  onClick={saveEvent}
+                  className="px-5 py-3 rounded-full bg-[#74B3CE] text-white font-bold shadow-sm hover:opacity-95 transition"
+                >
+                  {isHe ? "שמירה" : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+const MedicationsView: React.FC<{ lang: Language }> = ({ lang }) => {
+  const t = (key: string) => translations[key]?.[lang] || key;
+  const meds = buildActiveMeds(lang);
+
+  return (
+    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
       <div className="flex items-center gap-4 mb-10">
         <button
           onClick={() => window.history.back()}
@@ -325,7 +1027,7 @@ const MedicationsView: React.FC<{ lang: Language }> = ({ lang }) => {
         {meds.map((m, i) => (
           <div
             key={i}
-            className="p-6 bg-[#D6F3F4] rounded-[32px] border border-[#74B3CE]/20 shadow-sm flex items-center justify-between"
+            className="p-6 bg-[#D6F3F4] rounded-[32px] border border-[#74B3CE]/20 shadow-sm ac-card flex items-start justify-between gap-4"
           >
             <div>
               <p className="font-black text-xl text-[#172A3A]">{m.name}</p>
@@ -333,11 +1035,13 @@ const MedicationsView: React.FC<{ lang: Language }> = ({ lang }) => {
                 {m.dose} • {m.type}
               </p>
             </div>
-            <div className="text-right">
-              <span className="block px-3 py-1 bg-white rounded-full text-xs font-bold text-[#508991] mb-1">
+            <div className="min-w-[160px] flex flex-col items-end text-right">
+              <span className="block px-3 py-1 bg-white rounded-full text-xs font-bold text-[#508991] leading-none">
                 {m.time}
               </span>
-              <span className="text-xs text-slate-400 font-bold">{m.freq}</span>
+              <span className="text-xs text-slate-400 font-bold leading-snug">
+                {m.freq}
+              </span>
             </div>
           </div>
         ))}
@@ -348,17 +1052,10 @@ const MedicationsView: React.FC<{ lang: Language }> = ({ lang }) => {
 
 const MedicationHistoryView: React.FC<{ lang: Language }> = ({ lang }) => {
   const t = (key: string) => translations[key]?.[lang] || key;
-  const historyMeds = [
-    {
-      name: "Xanax",
-      dose: "0.5mg",
-      stopDate: "12/10/2023",
-      reason: t("reasonStopped"),
-    },
-  ];
+  const historyMeds = buildStoppedMeds(lang);
 
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white">
+    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
       <div className="flex items-center gap-4 mb-10">
         <button
           onClick={() => window.history.back()}
@@ -392,9 +1089,9 @@ const MedicationHistoryView: React.FC<{ lang: Language }> = ({ lang }) => {
             <p className="font-black text-xl text-slate-700 decoration-slate-400 decoration-2 line-through">
               {m.name}
             </p>
-            <div className="flex justify-between items-center text-sm font-bold text-slate-400">
-              <span>{m.dose}</span>
-              <span>
+            <div className="grid grid-cols-2 gap-3 text-sm font-bold text-slate-400">
+              <span className="truncate">{m.dose}</span>
+              <span className="text-right">
                 {t("date")}: {m.stopDate}
               </span>
             </div>
@@ -424,7 +1121,7 @@ const VisitSummariesView: React.FC<{ lang: Language }> = ({ lang }) => {
   ];
 
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white">
+    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
       <div className="flex items-center gap-4 mb-10">
         <button
           onClick={() => window.history.back()}
@@ -480,7 +1177,7 @@ const SensitivitiesView: React.FC<{ lang: Language }> = ({ lang }) => {
   ];
 
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white">
+    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
       <div className="flex items-center gap-4 mb-10">
         <button
           onClick={() => window.history.back()}
@@ -524,7 +1221,7 @@ const SensitivitiesView: React.FC<{ lang: Language }> = ({ lang }) => {
         {allergies.map((a, i) => (
           <div
             key={i}
-            className="p-6 bg-rose-50 rounded-[32px] border border-rose-100 shadow-sm"
+            className="p-6 bg-rose-50 rounded-[32px] border border-rose-100 shadow-sm ac-card"
           >
             <p className="font-black text-xl text-rose-800 mb-1">{a.name}</p>
             <p className="text-sm font-bold text-rose-600/80">{a.reaction}</p>
@@ -538,7 +1235,7 @@ const SensitivitiesView: React.FC<{ lang: Language }> = ({ lang }) => {
 const UploadDocsView: React.FC<{ lang: Language }> = ({ lang }) => {
   const t = (key: string) => translations[key]?.[lang] || key;
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white">
+    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
       <div className="flex items-center gap-4 mb-10">
         <button
           onClick={() => window.history.back()}
@@ -631,7 +1328,7 @@ const MedicalFileDashboard: React.FC<{ lang: Language }> = ({ lang }) => {
   ];
 
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white">
+    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
       <div className="flex items-center gap-4 mb-10">
         {/* Explicitly navigate to home to fix back button issue */}
         <button
@@ -686,7 +1383,7 @@ const QuestionnaireHistory: React.FC<{ lang: Language }> = ({ lang }) => {
   }, []);
 
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white">
+    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
       <div className="flex items-center gap-4 mb-10">
         <button
           onClick={() => window.history.back()}
@@ -766,7 +1463,7 @@ const QuestionnaireHistory: React.FC<{ lang: Language }> = ({ lang }) => {
 const Tutorial: React.FC<{ lang: Language }> = ({ lang }) => {
   const t = (key: string) => translations[key]?.[lang] || key;
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white">
+    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
       <div className="flex items-center gap-4 mb-10">
         <button
           onClick={() => window.history.back()}
@@ -811,7 +1508,7 @@ const Tutorial: React.FC<{ lang: Language }> = ({ lang }) => {
 const ContactUs: React.FC<{ lang: Language }> = ({ lang }) => {
   const t = (key: string) => translations[key]?.[lang] || key;
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white">
+    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
       <div className="flex items-center gap-4 mb-10">
         <button
           onClick={() => window.history.back()}
@@ -1061,6 +1758,7 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
   onSubmit,
 }) => {
   const [vibeCheck, setVibeCheck] = useState<boolean | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false); // New state for the success message
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState<any>({});
   const navigate = useNavigate();
@@ -1072,6 +1770,44 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
     return formData[q.dependsOn.id] === q.dependsOn.value;
   });
 
+  // --- NEW: Success Message View ---
+  if (showSuccess) {
+    return (
+      <div className="p-10 h-screen flex flex-col items-center justify-center text-center space-y-8 bg-white animate-in fade-in duration-700">
+        <div className="w-24 h-24 bg-[#D6F3F4] rounded-full flex items-center justify-center shadow-inner">
+          <svg
+            className="w-12 h-12 text-[#508991]"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="3"
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+        </div>
+        <div className="space-y-4">
+          <h2 className="text-4xl font-black text-[#172A3A] tracking-tighter">
+            {t("vibeSuccessTitle")}
+          </h2>
+          <p className="text-[#508991] font-bold text-lg leading-relaxed px-4">
+            {t("vibeSuccessMessage")}
+          </p>
+        </div>
+        <button
+          onClick={() => navigate("/")}
+          className="w-full max-w-xs p-6 bg-[#172A3A] text-white rounded-[32px] font-black shadow-xl active:scale-95 transition-transform"
+        >
+          {t("backToHome")}
+        </button>
+      </div>
+    );
+  }
+
+  // --- Initial Vibe Check ---
   if (vibeCheck === null) {
     return (
       <div className="p-10 pb-32 h-screen flex flex-col items-center justify-center text-center space-y-12 bg-white">
@@ -1089,15 +1825,15 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
                 quickLog: "good",
                 timestamp: new Date().toISOString(),
               });
-              navigate("/");
+              setShowSuccess(true); // Trigger the success message instead of immediate navigate
             }}
-            className="w-full p-6 bg-[#D6F3F4] text-[#172A3A] rounded-[32px] font-black shadow-sm transition-transform active:scale-95 border-2 border-[#74B3CE]/20 hover:bg-[#C2EBF0]"
+            className="w-full p-6 bg-[#D6F3F4] text-[#172A3A] rounded-[32px] font-black shadow-sm ac-card transition-transform active:scale-95 border-2 border-[#74B3CE]/20 hover:bg-[#C2EBF0]"
           >
             {t("vibeGood")}
           </button>
           <button
             onClick={() => setVibeCheck(false)}
-            className="w-full p-6 bg-rose-50 text-rose-700 rounded-[32px] font-black shadow-sm transition-transform active:scale-95 border-2 border-rose-100 hover:bg-rose-100"
+            className="w-full p-6 bg-rose-50 text-rose-700 rounded-[32px] font-black shadow-sm ac-card transition-transform active:scale-95 border-2 border-rose-100 hover:bg-rose-100"
           >
             {t("vibeNotGood")}
           </button>
@@ -1195,6 +1931,13 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
           >
             {q.title[lang]}
           </h2>
+          {q.help && (
+            <div className="bg-[#D6F3F4]/50 p-4 rounded-2xl border-l-4 border-[#508991]">
+              <p className="text-sm font-bold text-[#508991] leading-relaxed italic">
+                {q.help[lang]}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="mt-8 space-y-3">
@@ -1210,7 +1953,7 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
                   }}
                   className={`w-full p-6 ${
                     lang === "he" ? "text-right" : "text-left"
-                  } rounded-[32px] border-2 transition-all font-bold shadow-sm ${
+                  } rounded-[32px] border-2 transition-all font-bold shadow-sm ac-card ${
                     isSelected
                       ? "border-[#508991] bg-[#508991] text-white shadow-md"
                       : "border-[#D6F3F4] bg-white text-slate-500 hover:bg-[#D6F3F4]"
@@ -1235,7 +1978,7 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
                   }}
                   className={`w-full p-6 ${
                     lang === "he" ? "text-right" : "text-left"
-                  } rounded-[32px] border-2 transition-all font-bold shadow-sm ${
+                  } rounded-[32px] border-2 transition-all font-bold shadow-sm ac-card ${
                     isSelected
                       ? "border-[#508991] bg-[#508991] text-white"
                       : "border-[#D6F3F4] bg-white text-slate-500 hover:bg-[#D6F3F4]"
@@ -1292,6 +2035,20 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
               }}
               className="w-full p-10 bg-[#D6F3F4] rounded-[40px] text-6xl font-black tabular-nums border-none text-center focus:ring-4 focus:ring-[#508991]/20 outline-none shadow-sm"
               placeholder="0"
+            />
+          )}
+          {q.type === "text" && (
+            <textarea
+              value={formData[q.id] || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, [q.id]: e.target.value })
+              }
+              className="w-full p-6 bg-[#D6F3F4] rounded-[32px] border-none font-bold text-[#172A3A] h-40 focus:ring-4 focus:ring-[#508991]/20 outline-none shadow-sm ac-card"
+              placeholder={
+                lang === "he"
+                  ? "פרט כאן על האירוע..."
+                  : "Describe the event here..."
+              }
             />
           )}
         </div>
@@ -1351,6 +2108,22 @@ export default function App() {
         }`}
         dir={lang === "he" ? "rtl" : "ltr"}
       >
+        <style>{`
+          @keyframes acPageIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes acFadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+          .ac-page { animation: acPageIn 360ms ease both; }
+          .ac-fade-up { opacity: 0; animation: acFadeUp 420ms ease both; }
+          .ac-card { transition: transform 180ms ease, box-shadow 180ms ease; }
+          .ac-card:hover { transform: translateY(-2px); box-shadow: 0 14px 40px rgba(23, 42, 58, 0.08); }
+          .ac-press { transition: transform 120ms ease; }
+          .ac-press:active { transform: scale(0.98); }
+        `}</style>
         <SideMenu
           isOpen={isMenuOpen}
           onClose={() => setIsMenuOpen(false)}
@@ -1384,6 +2157,7 @@ export default function App() {
             path="/medical-file"
             element={<MedicalFileDashboard lang={lang} />}
           />
+          <Route path="/journal" element={<JournalView lang={lang} />} />
           <Route
             path="/medical-file/meds"
             element={<MedicationsView lang={lang} />}

@@ -42,7 +42,7 @@ export const DAILY_QUESTIONS: Question[] = [
     type: "scale",
     min: 1,
     max: 5,
-    title: { he: "דרגי את חומרת ההחמרה (1-5)", en: "Rate severity (1-5)" },
+    title: { he: "דרג/י את חומרת ההחמרה (1-5)", en: "Rate severity (1-5)" },
     help: {
       he: "1 = שינוי קטן, 5 = שינוי משמעותי שמפריע לתפקוד היומי.",
       en: "1 = mild change, 5 = major change affecting daily functioning.",
@@ -361,8 +361,6 @@ export const DAILY_QUESTIONS: Question[] = [
     id: "bp_systolic",
     section: "6. מדדים פיזיים - אכילה, שתייה ולחץ דם",
     type: "number",
-    min: 70,
-    max: 220,
     title: { he: "לחץ דם סיסטולי", en: "Systolic" },
     help: {
       he: "המספר העליון. ערך נמוך/גבוה ביחס לשגרה יכול להסביר סחרחורת/חולשה.",
@@ -374,8 +372,6 @@ export const DAILY_QUESTIONS: Question[] = [
     id: "bp_diastolic",
     section: "6. מדדים פיזיים - אכילה, שתייה ולחץ דם",
     type: "number",
-    min: 40,
-    max: 140,
     title: { he: "לחץ דם דיאסטולי", en: "Diastolic" },
     help: {
       he: "המספר התחתון. חשוב במיוחד כשיש עייפות, כאבי ראש או סחרחורת.",

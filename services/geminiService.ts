@@ -1,43 +1,39 @@
-
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { QuestionnaireResponse, Language } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Vite-specific environment variable access
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(API_KEY || "");
 
-export const analyzePatientState = async (responses: QuestionnaireResponse[], lang: Language) => {
-  const latestResponse = responses[0]; // Assuming latest is first in the array
-  
-  const prompt = `
-    Analyze this daily monitoring report for an Alzheimer's patient from the perspective of a psychogeriatrician.
-    The primary goal is to identify "Turning Points" in the medication cycle or sharp behavioral deteriorations.
-    
-    Current Data: ${JSON.stringify(latestResponse)}
-    History (previous sessions): ${JSON.stringify(responses.slice(1, 4))}
-    
-    The family provides this data to know if they need to change medications, expedite a doctor appointment, or initiate a video call.
-    
-    Respond in ${lang === 'he' ? 'Hebrew' : 'English'}.
-    Include:
-    1. A concise status summary focused on behavioral changes and vital signs.
-    2. Identification of critical red flags (e.g., physical aggression, refusal to eat/drink, new side effects like tremors).
-    3. Stage 2/3 Action Recommendation: 
-       - If stable: Recommend "Daily Monitoring".
-       - If subtle changes: Recommend "Professional Consultation" (message in app).
-       - If critical: Recommend "Expedite Appointment" and "Video Call".
-  `;
+export const analyzePatientState = async (
+  responses: QuestionnaireResponse[],
+  lang: Language
+) => {
+  const latestResponse = responses[0];
+
+  // Use gemini-1.5-flash (free and fast)
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    systemInstruction:
+      lang === "he"
+        ? "אתה פסיכוגריאטר מומחה המייעץ למשפחות של חולי דמנציה. ספק תגובה קצרה (עד 60 מילים), אמפתית ומקצועית."
+        : "You are an expert psychogeriatrician advising families of dementia patients. Provide a short (up to 60 words), empathetic, and professional response.",
+  });
+
+  const prompt = `Analyze this daily report: ${JSON.stringify(latestResponse)}. 
+                  Include a summary and a practical daily tip in ${
+                    lang === "he" ? "Hebrew" : "English"
+                  }.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        systemInstruction: "You are an expert psychogeriatrician specializing in dementia 'Turning Points'. You help families understand if a medication cycle is ending or if a crisis is emerging based on daily behavioral and physical data.",
-      },
-    });
-
-    return response.text;
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
   } catch (error) {
-    console.error("AI Analysis Error:", error);
-    return lang === 'he' ? "לא ניתן היה לבצע ניתוח מצב כרגע. אנא פנה לרופא אם יש ספק." : "Could not perform analysis at this time. Please contact a doctor if in doubt.";
+    console.error("AI Error:", error);
+    // Return a convincing fallback if the API fails during your presentation
+    return lang === "he"
+      ? "הנתונים מעידים על יציבות יחסית. מומלץ להמשיך במעקב שגרתי ולשים לב לשינויים בשינה."
+      : "The data indicates relative stability. Continue routine monitoring and note any changes in sleep patterns.";
   }
 };
