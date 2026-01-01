@@ -609,7 +609,7 @@ const buildStoppedMeds = (lang: Language): MedicationHistoryItem[] => {
   ];
 };
 
-type CalendarEventType = "NEW_MED_START" | "MED_TIME";
+type CalendarEventType = "NEW_MED_START" | "MED_TIME" | "APPOINTMENT";
 type CalendarEvent = {
   id: string;
   type: CalendarEventType;
@@ -620,6 +620,120 @@ type CalendarEvent = {
 };
 
 const CALENDAR_STORAGE_KEY = "awarecare_calendar_events_v1";
+
+type Doctor = {
+  id: string;
+  nameHe: string;
+  nameEn: string;
+  specialtyHe: string;
+  specialtyEn: string;
+  clinicHe: string;
+  clinicEn: string;
+  addressHe: string;
+  addressEn: string;
+  phone: string;
+};
+
+type Appointment = {
+  id: string;
+  doctorId: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+  reason: string;
+};
+
+const APPOINTMENTS_STORAGE_KEY = "awarecare_appointments_v1";
+
+const FAKE_DOCTORS: Doctor[] = [
+  {
+    id: "d1",
+    nameHe: 'ד"ר מרים לוי',
+    nameEn: "Dr. Miriam Levi",
+    specialtyHe: "רפואת משפחה",
+    specialtyEn: "Family Medicine",
+    clinicHe: "מרפאת העיר",
+    clinicEn: "City Clinic",
+    addressHe: "רח׳ הרקפת 12, מרכז העיר",
+    addressEn: "12 HaRakefet St., City Center",
+    phone: "03-555-0192",
+  },
+  {
+    id: "d2",
+    nameHe: 'ד"ר יונתן כהן',
+    nameEn: "Dr. Yonatan Cohen",
+    specialtyHe: "נוירולוגיה",
+    specialtyEn: "Neurology",
+    clinicHe: "מרפאת מומחים – קומה 3",
+    clinicEn: "Specialists Clinic – Floor 3",
+    addressHe: "שד׳ הים 48, בניין B",
+    addressEn: "48 HaYam Blvd., Building B",
+    phone: "03-555-0137",
+  },
+  {
+    id: "d3",
+    nameHe: 'ד"ר נועה בן־דוד',
+    nameEn: "Dr. Noa Ben‑David",
+    specialtyHe: "פסיכיאטריה",
+    specialtyEn: "Psychiatry",
+    clinicHe: "מרכז בריאות הנפש",
+    clinicEn: "Mental Health Center",
+    addressHe: "רח׳ הדקל 7, קומה 2",
+    addressEn: "7 HaDekel St., Floor 2",
+    phone: "03-555-0110",
+  },
+  {
+    id: "d4",
+    nameHe: 'ד"ר דניאל רוזן',
+    nameEn: "Dr. Daniel Rosen",
+    specialtyHe: "ראומטולוגיה",
+    specialtyEn: "Rheumatology",
+    clinicHe: "מרפאת מפרקים",
+    clinicEn: "Joint & Rheum Clinic",
+    addressHe: "רח׳ הנגב 22, אגף מערבי",
+    addressEn: "22 HaNegev St., West Wing",
+    phone: "03-555-0178",
+  },
+];
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+const addDays = (base: Date, days: number) => {
+  const d = new Date(base);
+  d.setDate(d.getDate() + days);
+  return d;
+};
+
+const toYmd = (d: Date) => {
+  const yyyy = d.getFullYear();
+  const mm = pad2(d.getMonth() + 1);
+  const dd = pad2(d.getDate());
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const formatDayLabel = (lang: Language, d: Date) => {
+  const weekdayHe = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
+  const weekdayEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const wd = d.getDay();
+  const day = d.getDate();
+  return lang === "he" ? `${weekdayHe[wd]} ${day}` : `${weekdayEn[wd]} ${day}`;
+};
+
+const generateSlotsForDoctor = (doctorId: string, date: string) => {
+  // Pseudo-realistic availability: different patterns per doctor + some gaps
+  const base =
+    doctorId === "d1"
+      ? ["09:00", "09:30", "10:30", "11:00", "16:00", "16:30"]
+      : doctorId === "d2"
+      ? ["08:30", "09:30", "10:00", "12:00", "15:00"]
+      : doctorId === "d3"
+      ? ["10:00", "11:00", "13:00", "14:00", "18:00"]
+      : ["09:00", "10:00", "11:30", "12:30", "17:00"];
+
+  // Add deterministic "busy" gaps by hashing date string
+  const hash = Array.from(date).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  const removeIdx = hash % base.length;
+  return base.filter((_, i) => i !== removeIdx);
+};
 
 const formatToday = () => {
   const d = new Date();
@@ -814,6 +928,10 @@ const JournalView: React.FC<{ lang: Language }> = ({ lang }) => {
                           ? isHe
                             ? "התחלת תרופה חדשה"
                             : "New medication start"
+                          : e.type === "APPOINTMENT"
+                          ? isHe
+                            ? "זימון תור"
+                            : "Appointment"
                           : isHe
                           ? "זמן קבלת תרופות"
                           : "Medication time"}
@@ -1554,85 +1672,303 @@ const Home: React.FC<{
   const t = (key: string) => translations[key]?.[lang] || key;
   const navigate = useNavigate();
 
+  const [apptOpen, setApptOpen] = useState(false);
+  const [apptDoctorId, setApptDoctorId] = useState<string>(
+    FAKE_DOCTORS[0]?.id || "d1"
+  );
+  const [apptDate, setApptDate] = useState<string>(() => toYmd(new Date()));
+  const [apptTime, setApptTime] = useState<string>("");
+  const [apptReason, setApptReason] = useState<string>("");
+
+  const isHe = lang === "he";
+
+  const [savedAppointments, setSavedAppointments] = useState<Appointment[]>(
+    () => {
+      try {
+        const raw = localStorage.getItem(APPOINTMENTS_STORAGE_KEY);
+        return raw ? (JSON.parse(raw) as Appointment[]) : [];
+      } catch {
+        return [];
+      }
+    }
+  );
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        APPOINTMENTS_STORAGE_KEY,
+        JSON.stringify(savedAppointments)
+      );
+    } catch {}
+  }, [savedAppointments]);
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
+  const selectedDoctor =
+    FAKE_DOCTORS.find((d) => d.id === apptDoctorId) || FAKE_DOCTORS[0];
+  const availableSlots = generateSlotsForDoctor(apptDoctorId, apptDate).filter(
+    (t) => {
+      // prevent double-booking
+      return !savedAppointments.some(
+        (a) =>
+          a.doctorId === apptDoctorId && a.date === apptDate && a.time === t
+      );
+    }
+  );
+
+  const closeAppt = () => {
+    setApptOpen(false);
+    setApptTime("");
+    setApptReason("");
+  };
+
+  const bookAppointment = () => {
+    if (!apptTime) return;
+    const id = `appt_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const newAppt: Appointment = {
+      id,
+      doctorId: apptDoctorId,
+      date: apptDate,
+      time: apptTime,
+      reason: apptReason.trim() || (isHe ? "ביקורת כללית" : "General checkup"),
+    };
+    setSavedAppointments((prev) => [newAppt, ...prev]);
+
+    // Also add to Journal calendar so everything feels synced
+    try {
+      const raw = localStorage.getItem(CALENDAR_STORAGE_KEY);
+      const calendarEvents: CalendarEvent[] = raw ? JSON.parse(raw) : [];
+      const title = isHe
+        ? `תור אצל ${selectedDoctor?.nameHe} (${selectedDoctor?.specialtyHe})`
+        : `Appointment with ${selectedDoctor?.nameEn} (${selectedDoctor?.specialtyEn})`;
+      const notes = isHe
+        ? `${selectedDoctor?.clinicHe} • ${selectedDoctor?.addressHe} • ${selectedDoctor?.phone}`
+        : `${selectedDoctor?.clinicEn} • ${selectedDoctor?.addressEn} • ${selectedDoctor?.phone}`;
+      const apptEvent: CalendarEvent = {
+        id: `cal_${id}`,
+        type: "APPOINTMENT",
+        title,
+        date: apptDate,
+        time: apptTime,
+        notes,
+      };
+      localStorage.setItem(
+        CALENDAR_STORAGE_KEY,
+        JSON.stringify([apptEvent, ...calendarEvents])
+      );
+    } catch {}
+
+    closeAppt();
+  };
+
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white overflow-x-hidden">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-10">
-        <button
-          onClick={onOpenMenu}
-          className="p-3 bg-[#D6F3F4] rounded-2xl text-[#172A3A] shadow-sm hover:bg-[#C2EBF0] transition-colors"
-        >
-          <svg
-            className="w-8 h-8"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+    <>
+      {" "}
+      {/* 1. This opening fragment is the key */}
+      <div className="px-6 pt-10 pb-32 min-h-screen bg-white overflow-x-hidden">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-10">
+          <button
+            onClick={onOpenMenu}
+            className="p-3 bg-[#D6F3F4] rounded-2xl text-[#172A3A] shadow-sm hover:bg-[#C2EBF0] transition-colors"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2.5"
-              d="M4 6h16M4 12h16M4 18h16"
+            <svg
+              className="w-8 h-8"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2.5"
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+          <div className="flex flex-col items-center">
+            <Logo className="w-14 h-14" />
+            <span className="text-[10px] font-black text-[#172A3A] tracking-widest mt-1">
+              AWARECARE
+            </span>
+          </div>
+          <button
+            onClick={onToggleLang}
+            className="px-4 py-2 bg-[#D6F3F4] rounded-2xl text-[#172A3A] shadow-sm font-black text-xs uppercase tracking-tighter hover:bg-[#C2EBF0] transition-colors"
+          >
+            {t("languageBtn")}
+          </button>
+        </div>
+
+        <div className="text-center mb-12 space-y-2">
+          <h1 className="text-3xl font-black text-[#172A3A] tracking-tighter">
+            {t("greeting")}
+          </h1>
+          <p className="text-[#508991] font-bold text-sm">{t("subtitle")}</p>
+        </div>
+
+        {/* Symmetric Cloud Layout */}
+        <div className="flex flex-col items-center gap-6">
+          <CloudBubble
+            label={t("statusSnapshot")}
+            onClick={() => navigate("/wizard")}
+            size="w-48 h-48"
+            variant="primary"
+          />
+          <div className="flex justify-center gap-6 w-full max-sm:gap-4 max-w-sm">
+            <CloudBubble
+              label={t("liveMedicalFile")}
+              onClick={() => navigate("/medical-file")}
+              size="w-36 h-36"
             />
-          </svg>
-        </button>
-        <div className="flex flex-col items-center">
-          <Logo className="w-14 h-14" />
-          <span className="text-[10px] font-black text-[#172A3A] tracking-widest mt-1">
-            AWARECARE
-          </span>
-        </div>
-        <button
-          onClick={onToggleLang}
-          className="px-4 py-2 bg-[#D6F3F4] rounded-2xl text-[#172A3A] shadow-sm font-black text-xs uppercase tracking-tighter hover:bg-[#C2EBF0] transition-colors"
-        >
-          {t("languageBtn")}
-        </button>
-      </div>
-
-      <div className="text-center mb-12 space-y-2">
-        <h1 className="text-3xl font-black text-[#172A3A] tracking-tighter">
-          {t("greeting")}
-        </h1>
-        <p className="text-[#508991] font-bold text-sm">{t("subtitle")}</p>
-      </div>
-
-      {/* Symmetric Cloud Layout */}
-      <div className="flex flex-col items-center gap-6">
-        <CloudBubble
-          label={t("statusSnapshot")}
-          onClick={() => navigate("/wizard")}
-          size="w-48 h-48"
-          variant="primary"
-        />
-
-        <div className="flex justify-center gap-6 w-full max-sm:gap-4 max-w-sm">
-          <CloudBubble
-            label={t("liveMedicalFile")}
-            onClick={() => navigate("/medical-file")}
-            size="w-36 h-36"
-          />
-          <CloudBubble
-            label={t("generalInfo")}
-            onClick={() => navigate("/info")}
-            size="w-36 h-36"
-          />
-        </div>
-
-        <div className="flex justify-center gap-6 w-full max-sm:gap-4 max-w-sm">
-          <CloudBubble
-            label={t("doctorMessages")}
-            onClick={() => navigate("/personal")}
-            size="w-32 h-32"
-          />
-          <CloudBubble
-            label={t("appointments")}
-            onClick={() => navigate("/medical-file")}
-            size="w-32 h-32"
-          />
+            <CloudBubble
+              label={t("generalInfo")}
+              onClick={() => navigate("/info")}
+              size="w-36 h-36"
+            />
+          </div>
+          <div className="flex justify-center gap-6 w-full max-sm:gap-4 max-w-sm">
+            <CloudBubble
+              label={t("doctorMessages")}
+              onClick={() => navigate("/personal")}
+              size="w-32 h-32"
+            />
+            <CloudBubble
+              label={t("appointments")}
+              onClick={() => setApptOpen(true)}
+              size="w-32 h-32"
+            />
+          </div>
         </div>
       </div>
-    </div>
+      {/* Appointment Modal Logic */}
+      {apptOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={closeAppt}
+          />
+          <div
+            className={`relative w-full max-w-xl bg-white rounded-[40px] border border-[#74B3CE]/30 shadow-2xl p-8 overflow-y-auto max-h-[90vh] ${
+              lang === "he" ? "text-right" : "text-left"
+            }`}
+            style={{ opacity: 1 }}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-black text-[#172A3A] tracking-tighter">
+                  {isHe ? "זימון תור" : "Book an Appointment"}
+                </h3>
+                <p className="text-sm font-bold text-[#508991]">
+                  {isHe
+                    ? "בחר רופא, תאריך ושעה פנויה — המידע פיקטיבי"
+                    : "Choose a doctor, date and slot — Demo data"}
+                </p>
+              </div>
+              <button
+                onClick={closeAppt}
+                className="p-3 rounded-2xl bg-[#D6F3F4] text-[#172A3A] font-black"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-[#D6F3F4] rounded-[28px] p-5 border border-[#74B3CE]/20">
+              <label className="block text-xs font-black text-[#172A3A] mb-2 uppercase tracking-wider">
+                {isHe ? "רופא רלוונטי" : "Relevant doctor"}
+              </label>
+              <select
+                value={apptDoctorId}
+                onChange={(e) => {
+                  setApptDoctorId(e.target.value);
+                  setApptTime("");
+                }}
+                className="w-full px-4 py-3 rounded-2xl bg-white border border-[#74B3CE]/20 font-bold text-[#172A3A] outline-none"
+              >
+                {FAKE_DOCTORS.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {isHe
+                      ? `${d.nameHe} • ${d.specialtyHe}`
+                      : `${d.nameEn} • ${d.specialtyEn}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date picker */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-black text-[#172A3A] uppercase">
+                  {isHe ? "בחירת תאריך" : "Pick a date"}
+                </span>
+                <span className="text-xs font-bold text-[#508991] bg-white px-2 py-1 rounded-lg">
+                  {apptDate}
+                </span>
+              </div>
+              <div className="grid grid-cols-7 gap-2">
+                {weekDays.map((d) => {
+                  const ymd = toYmd(d);
+                  return (
+                    <button
+                      key={ymd}
+                      onClick={() => {
+                        setApptDate(ymd);
+                        setApptTime("");
+                      }}
+                      className={`py-3 rounded-xl border font-black text-xs transition-all ${
+                        ymd === apptDate
+                          ? "bg-[#508991] text-white"
+                          : "bg-white text-[#172A3A]"
+                      }`}
+                    >
+                      {formatDayLabel(lang, d)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Time slots */}
+            <div className="mt-6">
+              <div className="grid grid-cols-3 gap-2">
+                {availableSlots.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setApptTime(t)}
+                    className={`py-3 rounded-xl border font-black text-sm transition-all ${
+                      t === apptTime
+                        ? "bg-[#172A3A] text-white"
+                        : "bg-white text-[#172A3A]"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 flex gap-3">
+              <button
+                onClick={closeAppt}
+                className="flex-1 py-4 rounded-2xl bg-[#D6F3F4] text-[#172A3A] font-black"
+              >
+                {isHe ? "ביטול" : "Cancel"}
+              </button>
+              <button
+                onClick={bookAppointment}
+                disabled={!apptTime}
+                className={`flex-1 py-4 rounded-2xl font-black ${
+                  apptTime
+                    ? "bg-[#508991] text-white"
+                    : "bg-slate-200 text-slate-400"
+                }`}
+              >
+                {isHe ? "קבע תור" : "Book"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </> // 2. This closing fragment matches the one at the top
   );
 };
 
