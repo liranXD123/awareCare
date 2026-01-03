@@ -819,6 +819,99 @@ const JournalView: React.FC<{ lang: Language }> = ({ lang }) => {
   const [draftDate, setDraftDate] = useState(todayStr);
   const [draftTime, setDraftTime] = useState("08:00");
   const [draftNotes, setDraftNotes] = useState("");
+  const [calCursor, setCalCursor] = useState(() => {
+    // Use today's date as the visible month
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    return d;
+  });
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+
+  const monthNamesHe = [
+    "ינואר",
+    "פברואר",
+    "מרץ",
+    "אפריל",
+    "מאי",
+    "יוני",
+    "יולי",
+    "אוגוסט",
+    "ספטמבר",
+    "אוקטובר",
+    "נובמבר",
+    "דצמבר",
+  ];
+  const monthNamesEn = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  const weekdayHe = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
+  const weekdayEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  const startOfMonth = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), 1, 12, 0, 0, 0);
+  const sameYmd = (a: string, b: string) => a === b;
+
+  const monthStart = startOfMonth(calCursor);
+  const monthLabel =
+    lang === "he"
+      ? `${monthNamesHe[monthStart.getMonth()]} ${monthStart.getFullYear()}`
+      : `${monthNamesEn[monthStart.getMonth()]} ${monthStart.getFullYear()}`;
+
+  // Build a 6-week grid (42 days), starting from the Sunday of the week containing the 1st
+  const gridStart = (() => {
+    const d = new Date(monthStart);
+    const day = d.getDay(); // 0=Sun
+    d.setDate(d.getDate() - day);
+    return d;
+  })();
+
+  const getMedEventsForDate = (dateStr: string): CalendarEvent[] => {
+    return activeMeds
+      .flatMap((m) => {
+        const times = parseTimes(m.time); // will ignore "Fixed day" etc.
+        return times.map((time) => ({
+          id: `${m.name}-${dateStr}-${time}`,
+          type: "MED_TIME" as const,
+          title: `${m.name} ${m.dose}`,
+          date: dateStr,
+          time,
+          notes: m.freq,
+        }));
+      })
+      .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+  };
+
+  const getAllEventsForDate = (dateStr: string): CalendarEvent[] => {
+    const scheduled = getMedEventsForDate(dateStr);
+    const custom = events
+      .filter((e) => e.date === dateStr)
+      .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+    return [...scheduled, ...custom].sort((a, b) =>
+      (a.time || "").localeCompare(b.time || "")
+    );
+  };
+
+  const selectedDayEvents = getAllEventsForDate(selectedDate);
+
+  const changeMonth = (delta: number) => {
+    setCalCursor((prev) => {
+      const d = new Date(prev);
+      d.setMonth(d.getMonth() + delta);
+      return d;
+    });
+  };
 
   const scheduledToday: CalendarEvent[] = activeMeds
     .flatMap((m) => {
@@ -893,11 +986,188 @@ const JournalView: React.FC<{ lang: Language }> = ({ lang }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
+          <div className="p-6 bg-white rounded-[32px] border border-[#74B3CE]/20 shadow-sm ac-card mb-6">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div className="min-w-0">
+                <h3 className="text-lg font-bold text-[#172A3A]">
+                  {isHe ? "יומן חודשי" : "Monthly Calendar"}
+                </h3>
+                <p className="text-sm font-semibold text-slate-500 mt-1">
+                  {isHe
+                    ? "בחר תאריך כדי לראות אירועים ונטילות"
+                    : "Pick a date to view events & doses"}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => changeMonth(-1)}
+                  className="w-10 h-10 rounded-full bg-[#D6F3F4] text-[#172A3A] font-black hover:bg-[#C2EBF0] transition"
+                  aria-label="Previous month"
+                >
+                  {isHe ? "›" : "‹"}
+                </button>
+
+                <div className="px-4 py-2 rounded-full bg-slate-50 border border-slate-200 text-sm font-extrabold text-[#172A3A]">
+                  {monthLabel}
+                </div>
+
+                <button
+                  onClick={() => changeMonth(1)}
+                  className="w-10 h-10 rounded-full bg-[#D6F3F4] text-[#172A3A] font-black hover:bg-[#C2EBF0] transition"
+                  aria-label="Next month"
+                >
+                  {isHe ? "‹" : "›"}
+                </button>
+              </div>
+            </div>
+
+            {/* Weekday labels */}
+            <div className="grid grid-cols-7 gap-2 mb-2">
+              {(isHe ? weekdayHe : weekdayEn).map((w) => (
+                <div
+                  key={w}
+                  className="text-xs font-black text-slate-400 text-center"
+                >
+                  {w}
+                </div>
+              ))}
+            </div>
+
+            {/* Calendar grid */}
+            <div className="grid grid-cols-7 gap-2">
+              {Array.from({ length: 42 }).map((_, i) => {
+                const d = new Date(gridStart);
+                d.setDate(gridStart.getDate() + i);
+                const ymd = toYmd(d);
+
+                const inMonth = d.getMonth() === monthStart.getMonth();
+                const isToday = sameYmd(ymd, todayStr);
+                const isSelected = sameYmd(ymd, selectedDate);
+
+                const dayEventsCount = getAllEventsForDate(ymd).length;
+
+                return (
+                  <button
+                    key={ymd}
+                    onClick={() => setSelectedDate(ymd)}
+                    className={`relative h-14 rounded-2xl border text-left px-3 py-2 transition active:scale-95
+              ${inMonth ? "bg-white" : "bg-slate-50"}
+              ${
+                isSelected
+                  ? "border-[#74B3CE] ring-2 ring-[#74B3CE]/25"
+                  : "border-slate-200"
+              }
+              ${!inMonth ? "text-slate-400" : "text-[#172A3A]"}
+              hover:bg-[#D6F3F4]/60`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`text-sm font-black ${
+                          isToday ? "text-[#508991]" : ""
+                        }`}
+                      >
+                        {d.getDate()}
+                      </span>
+
+                      {/* tiny badge for events */}
+                      {dayEventsCount > 0 ? (
+                        <span className="min-w-[22px] h-[22px] px-2 rounded-full bg-[#172A3A] text-white text-[11px] font-black flex items-center justify-center">
+                          {dayEventsCount}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {isToday ? (
+                      <div className="absolute bottom-2 left-3 text-[10px] font-black text-[#508991]">
+                        {isHe ? "היום" : "Today"}
+                      </div>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selected day agenda */}
+            <div className="mt-5 p-5 rounded-[28px] bg-[#D6F3F4] border border-[#74B3CE]/20">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-extrabold text-[#172A3A]">
+                  {isHe ? "אירועים בתאריך:" : "Events on:"}{" "}
+                  <span className="text-[#508991]">{selectedDate}</span>
+                </div>
+                <button
+                  onClick={() => setSelectedDate(todayStr)}
+                  className="text-xs font-black px-4 py-2 rounded-full bg-white text-[#508991] hover:bg-[#C2EBF0] transition"
+                >
+                  {isHe ? "חזור להיום" : "Back to today"}
+                </button>
+              </div>
+
+              {selectedDayEvents.length === 0 ? (
+                <div className="text-slate-500 font-semibold">
+                  {isHe
+                    ? "אין אירועים בתאריך שנבחר"
+                    : "No events on the selected date"}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {selectedDayEvents.map((e) => (
+                    <div
+                      key={e.id}
+                      className="p-4 bg-white rounded-[22px] border border-[#74B3CE]/20 shadow-sm flex items-start justify-between gap-4"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-[#172A3A] font-extrabold">
+                          {e.title}
+                        </div>
+                        {e.notes ? (
+                          <div className="text-slate-500 font-semibold text-sm mt-1">
+                            {e.notes}
+                          </div>
+                        ) : null}
+                        <div className="text-xs font-bold text-[#508991] mt-2">
+                          {e.type === "NEW_MED_START"
+                            ? isHe
+                              ? "התחלת תרופה חדשה"
+                              : "New medication start"
+                            : e.type === "APPOINTMENT"
+                            ? isHe
+                              ? "זימון תור"
+                              : "Appointment"
+                            : isHe
+                            ? "זמן קבלת תרופות"
+                            : "Medication time"}
+                        </div>
+                      </div>
+
+                      <div className="min-w-[120px] flex flex-col items-end text-right">
+                        <span className="block px-3 py-1 bg-[#D6F3F4] rounded-full text-xs font-bold text-[#508991] leading-none">
+                          {e.time || (isHe ? "כל היום" : "All day")}
+                        </span>
+
+                        {/* Delete only custom events */}
+                        {events.some((x) => x.id === e.id) ? (
+                          <button
+                            onClick={() => deleteEvent(e.id)}
+                            className="text-xs font-bold text-slate-400 mt-2 hover:text-red-500 transition"
+                          >
+                            {isHe ? "מחיקה" : "Delete"}
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="p-6 bg-white rounded-[32px] border border-[#74B3CE]/20 shadow-sm ac-card">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-[#172A3A]">
                 {isHe ? "לוח זמנים להיום" : "Today's Schedule"}
               </h3>
+              f
               <span className="text-sm font-bold text-slate-400">
                 {todayStr}
               </span>
@@ -2257,7 +2527,7 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
         </div>
 
         <div className="space-y-3">
-          <span className="text-[11px] font-black text-[#508991] uppercase tracking-[0.2em]">
+          <span className="text-[22px] font-black text-[#508991] uppercase tracking-[0.2em]">
             {q.section}
           </span>
           <h2

@@ -38,7 +38,7 @@ export const translations: Record<string, Record<Language, string>> = {
   statusAssessment: { he: "שאלון הערכת מצב", en: "Status Assessment" },
   tutorial: { he: "הדרכה", en: "Tutorial" },
   contactUs: { he: "צור קשר", en: "Contact Us" },
-  infoAndGuidance: { he: "מידע רלוונטי", en: "Relevant Information" }, // Changed
+  infoAndGuidance: { he: "מידע כללי", en: "General Information" }, // Changed
 
   // Medical File Sub-sections
   uploadDocs: { he: "העלאת מסמכים", en: "Upload Documents" },
@@ -92,7 +92,7 @@ export const translations: Record<string, Record<Language, string>> = {
   // General & Existing
   statusSnapshot: { he: "תיאור מצב יומי", en: "Daily Status Report" },
   appointments: { he: "זימון תור וביקורים", en: "Appointments" },
-  generalInfo: { he: "מידע רלוונטי", en: "Relevant Information" }, // Changed
+  generalInfo: { he: "מידע כללי", en: "General Information" }, // Changed
   doctorMessages: { he: "הודעות מהצוות", en: "Staff Messages" },
   exportPdf: { he: "ייצוא PDF לרופא", en: "Export PDF" },
   contact: { he: "צור קשר", en: "Contact Us" },
