@@ -166,7 +166,7 @@ const CloudBubble: React.FC<{
         : "bg-[#D6F3F4] text-[#172A3A] border-2 border-[#74B3CE]/20 shadow-lg shadow-[#508991]/5 hover:bg-[#C2EBF0]"
     }`}
   >
-    <span className="text-sm leading-tight px-2">{label}</span>
+    <span className="text-xl leading-tight px-2">{label}</span>
   </button>
 );
 
@@ -278,7 +278,7 @@ const QuickView: React.FC<{ lang: Language }> = ({ lang }) => {
           <h3 className="font-black text-xl mb-2 text-[#D6F3F4]">
             {t("clinicalSummary")}
           </h3>
-          <p className="text-xs opacity-80 leading-relaxed max-w-[80%]">
+          <p className="text-sm opacity-90 leading-relaxed max-w-[85%]">
             {isHe
               ? "יציבות קוגניטיבית נשמרת. מומלץ להקפיד על שתייה מרובה בשעות הבוקר עקב ערכי לחץ דם נמוכים שנמדדו."
               : "Cognitive stability maintained. Recommended to ensure high fluid intake in the morning due to low BP readings."}
@@ -294,7 +294,7 @@ const QuickView: React.FC<{ lang: Language }> = ({ lang }) => {
         <div className="ac-card bg-[#D6F3F4] rounded-[32px] p-6 border border-[#74B3CE]/20 shadow-sm ac-card">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h4 className="text-[#172A3A] font-black tracking-tight">
+              <h4 className="text-lg text-[#172A3A] font-black tracking-tight">
                 {isHe ? "תרופות (נלקחות כיום)" : "Active Medications"}
               </h4>
               <p className="text-xs text-slate-500 font-bold mt-1">
@@ -317,7 +317,7 @@ const QuickView: React.FC<{ lang: Language }> = ({ lang }) => {
             </div>
             {nextDose ? (
               <div className="flex items-center justify-between gap-3">
-                <span className="px-3 py-1 rounded-full bg-white text-[#508991] text-xs font-black">
+                <span className="px-3 py-1 rounded-full bg-white text-[#508991] text-sm font-black">
                   {nextDose.time}
                 </span>
                 <span className="text-sm font-black text-[#172A3A] truncate">
@@ -395,11 +395,11 @@ const QuickView: React.FC<{ lang: Language }> = ({ lang }) => {
                   {item.hasAttachment && (
                     <span className="text-slate-400 text-sm">📎</span>
                   )}
-                  <p className="font-black text-lg text-[#172A3A] leading-tight">
+                  <p className="font-black text-xl text-[#172A3A] leading-tight">
                     {item.title[lang]}
                   </p>
                 </div>
-                <p className="text-sm font-bold text-[#508991]">
+                <p className="text-base font-bold text-[#508991]">
                   {item.sub[lang]}
                 </p>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -421,8 +421,8 @@ const QuickView: React.FC<{ lang: Language }> = ({ lang }) => {
       </div>
 
       {/* Floating Action Button (As seen in the image) */}
-      <button className="fixed bottom-32 left-8 right-8 bg-[#172A3A] text-white p-5 rounded-[32px] font-black shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform z-50">
-        <span className="text-2xl">+</span>
+      <button className="fixed bottom-24 right-6 bg-[#172A3A] text-white px-5 py-3 rounded-full font-black shadow-xl flex items-center gap-2 active:scale-95 transition-transform z-50">
+        <span className="text-base">+</span>
         <span>{isHe ? "פעולות מהירות" : "Quick Actions"}</span>
       </button>
     </div>
@@ -432,7 +432,7 @@ const QuickView: React.FC<{ lang: Language }> = ({ lang }) => {
 const DoctorContact: React.FC<{ lang: Language }> = ({ lang }) => {
   const t = (key: string) => translations[key]?.[lang] || key;
   return (
-    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
+    <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page text-[17px]">
       <div className="flex items-center gap-4 mb-10">
         <button
           onClick={() => window.history.back()}
@@ -2249,14 +2249,14 @@ const InfoSection: React.FC<{
 }> = ({ title, content, lang }) => (
   <div className="bg-[#D6F3F4] rounded-[40px] p-8 border border-[#74B3CE]/20 shadow-sm hover:shadow-md transition-shadow">
     <h3
-      className={`text-xl font-black text-[#172A3A] mb-4 border-${
+      className={`text-3xl font-black text-[#172A3A] mb-4 border-${
         lang === "he" ? "r" : "l"
       }-4 border-[#508991] ${lang === "he" ? "pr-3" : "pl-3"}`}
     >
       {title}
     </h3>
     <p
-      className={`text-slate-600 leading-relaxed font-medium text-sm whitespace-pre-line ${
+      className={`text-slate-600 leading-relaxed font-medium text-xl whitespace-pre-line ${
         lang === "he" ? "text-right" : "text-left"
       }`}
     >
@@ -2268,6 +2268,62 @@ const InfoSection: React.FC<{
 const InfoGuidance: React.FC<{ lang: Language }> = ({ lang }) => {
   const navigate = useNavigate();
   const t = (key: string) => translations[key]?.[lang] || key;
+  const isHe = lang === "he";
+
+  const [linksOpen, setLinksOpen] = useState(false);
+
+  const relevantLinks = [
+    {
+      title: isHe
+        ? "משרד הבריאות — דמנציה ואלצהיימר"
+        : "Ministry of Health — Dementia & Alzheimer’s",
+      desc: isHe
+        ? "מידע רשמי והכוונה למשפחות"
+        : "Official info and guidance for families",
+      url: "https://me.health.gov.il/older-adult/keep-me-healthy/common-conditions/dementia-and-alzheimer/about/",
+      icon: "🏛️",
+    },
+    {
+      title: isHe
+        ? "האגודה הישראלית לגרונטולוגיה"
+        : "Israeli Gerontology Association",
+      desc: isHe
+        ? "תכנים, כנסים ומשאבים בתחום הגרונטולוגיה"
+        : "Resources and professional info in gerontology",
+      url: "https://gerontology.org.il/",
+      icon: "👵",
+    },
+    {
+      title: isHe
+        ? "כל-זכות — אלצהיימר ומחלות דמנציה"
+        : "Kol Zchut — Alzheimer’s & Dementia (Rights)",
+      desc: isHe
+        ? "זכויות, קצבאות והטבות למשפחות"
+        : "Rights, benefits, and support information",
+      url: "https://www.kolzchut.org.il/he/%D7%90%D7%9C%D7%A6%D7%94%D7%99%D7%99%D7%9E%D7%A8_%D7%95%D7%9E%D7%97%D7%9C%D7%95%D7%AA_%D7%93%D7%9E%D7%A0%D7%A6%D7%99%D7%94",
+      icon: "📜",
+    },
+    {
+      title: isHe
+        ? "עמותת עמדא — תמיכה למשפחות"
+        : "EMDA — Support for Families",
+      desc: isHe
+        ? "קבוצות תמיכה, מידע וסיוע"
+        : "Support groups, information, and help",
+      url: "https://www.alzint.org/member/alzheimers-association-of-israel/",
+      icon: "🤝",
+    },
+    {
+      title: isHe
+        ? "ביטוח לאומי — גמלת סיעוד"
+        : "National Insurance — Long-Term Care Benefit",
+      desc: isHe
+        ? "מידע על זכאות ושירותים"
+        : "Eligibility and services overview",
+      url: "https://www.btl.gov.il/English%20Homepage/Benefits/LongTerm%20Care/Services/Pages/default.aspx",
+      icon: "🧾",
+    },
+  ];
 
   const sections = [
     {
@@ -2313,49 +2369,135 @@ const InfoGuidance: React.FC<{ lang: Language }> = ({ lang }) => {
   ];
 
   return (
-    <div className="px-6 pb-32 pt-10 bg-white min-h-screen overflow-y-auto">
-      <div className="flex items-center gap-4 mb-10">
-        <button
-          onClick={() => navigate("/")}
-          className="p-3 bg-[#D6F3F4] rounded-full text-[#172A3A] shadow-sm active:scale-90 transition-transform hover:bg-[#C2EBF0]"
-        >
-          <svg
-            className="w-6 h-6 rtl-flip"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="3"
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-        </button>
-        <h2 className="text-3xl font-black text-[#172A3A] tracking-tighter">
-          {t("generalInfo")}
-        </h2>
-      </div>
+    <>
+      <div className="px-6 pb-32 pt-10 bg-white min-h-screen overflow-y-auto">
+        <div className="flex items-center justify-between gap-4 mb-10">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/")}
+              className="p-3 bg-[#D6F3F4] rounded-full text-[#172A3A] shadow-sm active:scale-90 transition-transform hover:bg-[#C2EBF0]"
+            >
+              <svg
+                className="w-6 h-6 rtl-flip"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="3"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
 
-      <div className="space-y-6">
-        <div className="bg-[#172A3A] text-white p-8 rounded-[48px] shadow-xl text-center">
-          <h3 className="text-2xl font-black mb-3">{t("medicalInfoTitle")}</h3>
-          <p className="text-[#D6F3F4] text-sm font-bold opacity-80 uppercase tracking-widest">
-            {t("medicalInfoSubtitle")}
-          </p>
+            <h2 className="text-3xl font-black text-[#172A3A] tracking-tighter">
+              {t("generalInfo")}
+            </h2>
+          </div>
+
+          <button
+            onClick={() => setLinksOpen(true)}
+            className="px-5 py-3 rounded-[22px] bg-[#508991] text-white font-black shadow-lg active:scale-95 transition-transform hover:opacity-95 flex items-center gap-2"
+          >
+            <span className="text-lg">🔗</span>
+            {isHe ? "קישורים רלוונטיים" : "Relevant Links"}
+          </button>
         </div>
 
-        {sections.map((section, idx) => (
-          <InfoSection
-            key={idx}
-            title={section.title}
-            content={section.content}
-            lang={lang}
-          />
-        ))}
+        <div className="space-y-6">
+          <div className="bg-[#172A3A] text-white p-8 rounded-[48px] shadow-xl text-center">
+            <h3 className="text-2xl font-black mb-3">
+              {t("medicalInfoTitle")}
+            </h3>
+            <p className="text-[#D6F3F4] text-lg font-bold opacity-80 uppercase tracking-widest">
+              {t("medicalInfoSubtitle")}
+            </p>
+          </div>
+
+          {sections.map((section, idx) => (
+            <InfoSection
+              key={idx}
+              title={section.title}
+              content={section.content}
+              lang={lang}
+            />
+          ))}
+        </div>
+        {linksOpen ? (
+          <div className="fixed inset-0 z-[80]">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-[#172A3A]/50 backdrop-blur-sm"
+              onClick={() => setLinksOpen(false)}
+            />
+
+            {/* Bottom Sheet */}
+            <div className="absolute left-0 right-0 bottom-0 p-6">
+              <div className="bg-white rounded-[40px] border border-[#74B3CE]/20 shadow-2xl overflow-hidden">
+                <div className="p-6 flex items-start justify-between gap-4 border-b border-slate-100">
+                  <div>
+                    <h3 className="text-xl font-black text-[#172A3A]">
+                      {isHe ? "קישורים שימושיים" : "Useful Links"}
+                    </h3>
+                    <p className="text-slate-500 font-bold text-base mt-1">
+                      {isHe
+                        ? "משאבים אמינים לקריאה והכוונה למשפחות"
+                        : "Trusted resources for families and caregivers"}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setLinksOpen(false)}
+                    className="w-10 h-10 rounded-full bg-[#D6F3F4] text-[#172A3A] font-black hover:bg-[#C2EBF0] transition"
+                    aria-label="Close"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-3">
+                  {relevantLinks.map((l) => (
+                    <a
+                      key={l.url}
+                      href={l.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block p-5 bg-[#D6F3F4] rounded-[28px] border border-[#74B3CE]/20 hover:bg-[#C2EBF0] transition"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-2xl">
+                          {l.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-black text-[#172A3A] text-2xl leading-tight">
+                            {l.title}
+                          </div>
+                          <div className="text-slate-600 font-semibold text-sm mt-1">
+                            {l.desc}
+                          </div>
+                          <div className="text-xs font-black text-[#508991] mt-2 break-all">
+                            {l.url}
+                          </div>
+                        </div>
+                        <div className="pt-1 text-slate-400 font-black">↗</div>
+                      </div>
+                    </a>
+                  ))}
+
+                  <div className="pt-2 text-xs text-slate-400 font-bold">
+                    {isHe
+                      ? "הערה: הקישורים נפתחים בטאב חדש."
+                      : "Note: Links open in a new tab."}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
-    </div>
+    </>
   );
 };
 
@@ -2876,80 +3018,118 @@ export default function App() {
         </Routes>
 
         {/* Bottom Nav Bar - Balanced & Polished */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl px-10 py-8 flex justify-between items-center rounded-t-[56px] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] border-t border-[#D6F3F4] z-50">
-          <NavLink
-            to="/"
-            className={({ isActive }) =>
-              `p-3 rounded-[24px] transition-all duration-300 ${
-                isActive
-                  ? "text-[#508991] bg-[#D6F3F4] shadow-inner scale-110"
-                  : "text-slate-300 hover:text-[#74B3CE]"
-              }`
-            }
-          >
-            <svg
-              className="w-8 h-8"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
+          {/* Hover zone */}
+          <div className="group relative w-full max-w-3xl">
+            {/* Handle (always visible) */}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[60]">
+              <div className="px-4 py-2 rounded-full bg-white/95 backdrop-blur-xl border border-[#D6F3F4] shadow-sm flex items-center gap-2 text-[#172A3A]">
+                <svg
+                  className="w-4 h-4 transition-transform duration-300 group-hover:rotate-180"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2.5"
+                    d="M6 15l6-6 6 6"
+                  />
+                </svg>
+                <span className="text-xs font-black tracking-tight opacity-70">
+                  Menu
+                </span>
+              </div>
+            </div>
+            <nav
+              className="
+        fixed bottom-0 left-0 right-0
+        bg-white/95 backdrop-blur-xl
+        px-10 py-8 flex justify-between items-center
+        rounded-t-[56px]
+        shadow-[0_-10px_40px_rgba(0,0,0,0.05)]
+        border-t border-[#D6F3F4]
+        transition-transform duration-300 ease-out
+        translate-y-[78%]
+        group-hover:translate-y-0
+      "
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2.5"
-                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-              />
-            </svg>
-          </NavLink>
-          <NavLink
-            to="/wizard"
-            className={({ isActive }) =>
-              `p-3 rounded-[24px] transition-all duration-300 ${
-                isActive
-                  ? "text-[#508991] bg-[#D6F3F4] shadow-inner scale-110"
-                  : "text-slate-300 hover:text-[#74B3CE]"
-              }`
-            }
-          >
-            <svg
-              className="w-8 h-8"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2.5"
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-          </NavLink>
-          <NavLink
-            to="/personal"
-            className={({ isActive }) =>
-              `p-3 rounded-[24px] transition-all duration-300 ${
-                isActive
-                  ? "text-[#508991] bg-[#D6F3F4] shadow-inner scale-110"
-                  : "text-slate-300 hover:text-[#74B3CE]"
-              }`
-            }
-          >
-            <svg
-              className="w-8 h-8"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2.5"
-                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-              />
-            </svg>
-          </NavLink>
-        </nav>
+              <NavLink
+                to="/"
+                className={({ isActive }) =>
+                  `p-3 rounded-[24px] transition-all duration-300 ${
+                    isActive
+                      ? "text-[#508991] bg-[#D6F3F4] shadow-inner scale-110"
+                      : "text-slate-300 hover:text-[#74B3CE]"
+                  }`
+                }
+              >
+                <svg
+                  className="w-8 h-8"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2.5"
+                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                  />
+                </svg>
+              </NavLink>
+              <NavLink
+                to="/wizard"
+                className={({ isActive }) =>
+                  `p-3 rounded-[24px] transition-all duration-300 ${
+                    isActive
+                      ? "text-[#508991] bg-[#D6F3F4] shadow-inner scale-110"
+                      : "text-slate-300 hover:text-[#74B3CE]"
+                  }`
+                }
+              >
+                <svg
+                  className="w-8 h-8"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2.5"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </NavLink>
+              <NavLink
+                to="/personal"
+                className={({ isActive }) =>
+                  `p-3 rounded-[24px] transition-all duration-300 ${
+                    isActive
+                      ? "text-[#508991] bg-[#D6F3F4] shadow-inner scale-110"
+                      : "text-slate-300 hover:text-[#74B3CE]"
+                  }`
+                }
+              >
+                <svg
+                  className="w-8 h-8"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2.5"
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
+                </svg>
+              </NavLink>
+            </nav>
+          </div>
+        </div>
 
         {loading && (
           <div className="fixed inset-0 bg-white/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center gap-8">
