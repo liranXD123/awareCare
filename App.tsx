@@ -276,7 +276,9 @@ const QuickView: React.FC<{ lang: Language }> = ({ lang }) => {
       <div className="bg-[#172A3A] text-white p-8 rounded-[40px] shadow-lg mb-8 relative overflow-hidden">
         <div className="relative z-10">
           <h3 className="font-black text-xl mb-2 text-[#D6F3F4]">
-            {t("clinicalSummary")}
+            {isHe
+              ? "עדכון מצב קוגניטיבי אחרון"
+              : "Latest Cognitive Status Update"}
           </h3>
           <p className="text-sm opacity-90 leading-relaxed max-w-[85%]">
             {isHe
@@ -2408,12 +2410,9 @@ const InfoGuidance: React.FC<{ lang: Language }> = ({ lang }) => {
 
         <div className="space-y-6">
           <div className="bg-[#172A3A] text-white p-8 rounded-[48px] shadow-xl text-center">
-            <h3 className="text-2xl font-black mb-3">
+            <h3 className="text-3xl font-black mb-3">
               {t("medicalInfoTitle")}
             </h3>
-            <p className="text-[#D6F3F4] text-lg font-bold opacity-80 uppercase tracking-widest">
-              {t("medicalInfoSubtitle")}
-            </p>
           </div>
 
           {sections.map((section, idx) => (
