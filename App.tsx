@@ -1852,6 +1852,7 @@ const QuestionnaireHistory: React.FC<{ lang: Language }> = ({ lang }) => {
 
 const Tutorial: React.FC<{ lang: Language }> = ({ lang }) => {
   const t = (key: string) => translations[key]?.[lang] || key;
+
   return (
     <div className="px-6 pt-10 pb-32 min-h-screen bg-white ac-page">
       <div className="flex items-center gap-4 mb-10">
@@ -1877,19 +1878,24 @@ const Tutorial: React.FC<{ lang: Language }> = ({ lang }) => {
           {t("tutorial")}
         </h2>
       </div>
-      <div className="bg-[#172A3A] text-white p-10 rounded-[48px] shadow-xl text-center space-y-6">
-        <div className="w-20 h-20 bg-white/20 rounded-full mx-auto flex items-center justify-center">
-          <svg
-            className="w-10 h-10 text-white fill-current"
-            viewBox="0 0 24 24"
-          >
-            <path d="M8 5v14l11-7z" />
-          </svg>
+
+      <div className="bg-[#172A3A] text-white p-6 sm:p-10 rounded-[48px] shadow-xl space-y-6">
+        <h3 className="text-2xl font-black text-center">
+          {t("videoTutorial")}
+        </h3>
+
+        {/* Video */}
+        <div className="relative w-full overflow-hidden rounded-[32px] aspect-video border border-white/20 shadow-lg">
+          <iframe
+            src="https://www.youtube.com/embed/sqxEpNoMCZg"
+            title="AwareCare Tutorial Video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="absolute inset-0 w-full h-full"
+          />
         </div>
-        <div>
-          <h3 className="text-2xl font-black mb-2">{t("videoTutorial")}</h3>
-          <p className="text-[#D6F3F4]">{t("playVideo")}</p>
-        </div>
+
+        <p className="text-[#D6F3F4] text-center font-bold">{t("playVideo")}</p>
       </div>
     </div>
   );
