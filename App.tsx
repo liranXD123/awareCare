@@ -2504,12 +2504,47 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
   lang,
   onSubmit,
 }) => {
+  const [fillerFirstName, setFillerFirstName] = useState("");
+  const [fillerRelation, setFillerRelation] = useState("");
+  const [fillerReason, setFillerReason] = useState("");
   const [vibeCheck, setVibeCheck] = useState<boolean | null>(null);
-  const [showSuccess, setShowSuccess] = useState(false); // New state for the success message
+  const [showSuccess, setShowSuccess] = useState(false);
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState<any>({});
   const navigate = useNavigate();
   const t = (key: string) => translations[key]?.[lang] || key;
+
+  // Load draft once (if exists)
+  useEffect(() => {
+    const draft = localStorage.getItem("awareCareDraft");
+    if (draft) {
+      const parsed = JSON.parse(draft);
+      setFormData(parsed);
+      // If you want to continue directly from the draft, uncomment:
+      // setVibeCheck(false);
+    }
+    // NOTE: remove draft after reading, so it won't keep re-loading
+    localStorage.removeItem("awareCareDraft");
+  }, []);
+
+  // Save draft on unmount only if patient is NOT good and started answering
+  useEffect(() => {
+    return () => {
+      if (vibeCheck === false) {
+        const hasAnyAnswer = Object.keys(formData || {}).length > 0;
+        if (hasAnyAnswer) {
+          localStorage.setItem(
+            "awareCareDraft",
+            JSON.stringify({
+              ...formData,
+              timestamp: new Date().toISOString(),
+              incomplete: true,
+            })
+          );
+        }
+      }
+    };
+  }, [vibeCheck, formData]);
 
   // Dynamically calculate visible questions based on current formData
   const visibleQuestions = DAILY_QUESTIONS.filter((q) => {
@@ -2517,7 +2552,7 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
     return formData[q.dependsOn.id] === q.dependsOn.value;
   });
 
-  // --- NEW: Success Message View ---
+  // --- Success Message View ---
   if (showSuccess) {
     return (
       <div className="p-10 h-screen flex flex-col items-center justify-center text-center space-y-8 bg-white animate-in fade-in duration-700">
@@ -2567,17 +2602,18 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
         <div className="space-y-4 w-full max-w-xs">
           <button
             onClick={() => {
-              setVibeCheck(true);
+              // IMPORTANT: do NOT setVibeCheck(true) -> it causes "blank state"
               onSubmit({
                 quickLog: "good",
                 timestamp: new Date().toISOString(),
               });
-              setShowSuccess(true); // Trigger the success message instead of immediate navigate
+              setShowSuccess(true);
             }}
             className="w-full p-6 bg-[#D6F3F4] text-[#172A3A] rounded-[32px] font-black shadow-sm ac-card transition-transform active:scale-95 border-2 border-[#74B3CE]/20 hover:bg-[#C2EBF0]"
           >
             {t("vibeGood")}
           </button>
+
           <button
             onClick={() => setVibeCheck(false)}
             className="w-full p-6 bg-rose-50 text-rose-700 rounded-[32px] font-black shadow-sm ac-card transition-transform active:scale-95 border-2 border-rose-100 hover:bg-rose-100"
@@ -2585,6 +2621,161 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
             {t("vibeNotGood")}
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // If patient is NOT feeling good - show filler identification before the questions
+  if (vibeCheck === false && !formData.__filler_done) {
+    const canContinue =
+      fillerFirstName.trim().length > 0 && fillerRelation.trim().length > 0;
+    const relationOptions = [
+      {
+        value: "nursing",
+        label: { he: "מטפל/ת סיעודי/ת", en: "Nursing care worker" },
+      },
+      { value: "husband", label: { he: "בעל", en: "Husband" } },
+      { value: "wife", label: { he: "אישה", en: "Wife" } },
+      { value: "son", label: { he: "בן", en: "Son" } },
+      { value: "daughter", label: { he: "בת", en: "Daughter" } },
+      { value: "grandson", label: { he: "נכד", en: "Grandson" } },
+      { value: "granddaughter", label: { he: "נכדה", en: "Granddaughter" } },
+    ];
+    return (
+      <div className="p-8 pb-40 h-screen bg-white flex flex-col justify-between overflow-y-auto">
+        <div className="space-y-8">
+          <div className="flex justify-between items-center">
+            <button
+              onClick={() => setVibeCheck(null)}
+              className="text-slate-500 p-2 bg-[#D6F3F4] rounded-full transition-colors active:scale-90 hover:bg-[#C2EBF0]"
+            >
+              <svg
+                className="w-6 h-6 rtl-flip"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+
+            <div className="px-4 py-1.5 bg-[#D6F3F4] rounded-full text-[10px] font-black text-[#172A3A] tracking-widest shadow-sm">
+              {lang === "he" ? "זיהוי" : "IDENTIFICATION"}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <span className="text-[11px] font-black text-[#508991] uppercase tracking-[0.2em]">
+              {lang === "he" ? "לפני שמתחילים" : "BEFORE WE START"}
+            </span>
+            <h2
+              className={`text-2xl font-black text-[#172A3A] leading-tight tracking-tight ${
+                lang === "he" ? "text-right" : "text-left"
+              }`}
+            >
+              {lang === "he"
+                ? "מי ממלא את השאלון ומה הקשר למטופל?"
+                : "Who is filling this form and what is their relation to the patient?"}
+            </h2>
+
+            <p
+              className={`text-sm font-bold text-slate-500 ${
+                lang === "he" ? "text-right" : "text-left"
+              }`}
+            >
+              {lang === "he"
+                ? "המידע הזה עוזר לצוות הרפואי להבין את ההקשר של הדיווח."
+                : "This helps the medical team understand the context of the report."}
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {/* First name */}
+            <div className="p-6 bg-[#D6F3F4] rounded-[32px] border border-[#74B3CE]/20 shadow-sm">
+              <label className="block text-sm font-black text-[#172A3A] mb-2">
+                {lang === "he" ? "שם פרטי" : "First name"}
+              </label>
+              <input
+                value={fillerFirstName}
+                onChange={(e) => setFillerFirstName(e.target.value)}
+                placeholder={lang === "he" ? "לדוגמה: דנה" : "e.g., Dana"}
+                className="w-full px-4 py-3 rounded-2xl bg-white border border-white/60 font-bold text-[#172A3A] outline-none focus:ring-4 focus:ring-[#508991]/15"
+              />
+            </div>
+
+            {/* Relation */}
+            <div className="p-6 bg-[#D6F3F4] rounded-[32px] border border-[#74B3CE]/20 shadow-sm">
+              <label className="block text-sm font-black text-[#172A3A] mb-2">
+                {lang === "he" ? "קשר למטופל" : "Relation to patient"}
+              </label>
+
+              <div className="space-y-2">
+                {relationOptions.map((opt) => {
+                  const selected = fillerRelation === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setFillerRelation(opt.value)}
+                      className={`w-full p-4 rounded-[24px] border-2 transition-all font-bold shadow-sm ${
+                        lang === "he" ? "text-right" : "text-left"
+                      } ${
+                        selected
+                          ? "border-[#508991] bg-[#508991] text-white"
+                          : "border-white/60 bg-white text-slate-600 hover:bg-[#C2EBF0]"
+                      }`}
+                    >
+                      {opt.label[lang]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Reason (optional) */}
+            <div className="p-6 bg-[#D6F3F4] rounded-[32px] border border-[#74B3CE]/20 shadow-sm">
+              <label className="block text-sm font-black text-[#172A3A] mb-2">
+                {lang === "he"
+                  ? "סיבה למילוי (אופציונלי)"
+                  : "Reason (optional)"}
+              </label>
+              <textarea
+                value={fillerReason}
+                onChange={(e) => setFillerReason(e.target.value)}
+                placeholder={
+                  lang === "he"
+                    ? "לדוגמה: שינוי במצב היום / בלבול / חוסר שקט..."
+                    : "e.g., change today / confusion / restlessness..."
+                }
+                className="w-full px-4 py-3 rounded-2xl bg-white border border-white/60 font-bold text-[#172A3A] outline-none focus:ring-4 focus:ring-[#508991]/15 min-h-[110px]"
+              />
+            </div>
+          </div>
+        </div>
+
+        <button
+          disabled={!canContinue}
+          onClick={() => {
+            setFormData((prev: any) => ({
+              ...prev,
+              filler_first_name: fillerFirstName.trim(),
+              filler_relation: fillerRelation,
+              filler_reason: fillerReason.trim(),
+              __filler_done: true,
+            }));
+          }}
+          className={`w-full p-6 rounded-[32px] font-black text-xl shadow-2xl transition-all mt-8 mb-4 ${
+            canContinue
+              ? "bg-[#508991] text-white active:scale-95"
+              : "bg-slate-200 text-slate-400 cursor-not-allowed opacity-70 shadow-none"
+          }`}
+        >
+          {lang === "he" ? "המשך לשאלון" : "Continue to Questions"}
+        </button>
       </div>
     );
   }
@@ -2598,7 +2789,6 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
 
     if (q.type === "number") {
       const val = formData[q.id];
-      // Check if value exists and is within bounds
       if (val === undefined || val === "") return false;
       const num = parseFloat(val);
       if (isNaN(num)) return false;
@@ -2606,11 +2796,9 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
       if (q.max !== undefined && num > q.max) return false;
       return true;
     }
-    // For Scale, it has a default visual value, but we need to ensure it's captured if user just clicks next
-    // Actually, we can just treat it as always valid because we'll default it in handleNext if missing
+
     if (q.type === "scale") return true;
 
-    // For other types, check if answered
     const val = formData[q.id];
     if (Array.isArray(val)) return val.length > 0;
     return val !== undefined && val !== "";
@@ -2619,7 +2807,6 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
   const handleNext = () => {
     if (!isStepValid()) return;
 
-    // Ensure scale default is saved if not interacted with
     if (q.type === "scale" && formData[q.id] === undefined) {
       formData[q.id] = q.min || 1;
     }
@@ -2627,7 +2814,12 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
     if (currentStepIndex < visibleQuestions.length - 1) {
       setStep(currentStepIndex + 1);
     } else {
-      onSubmit({ ...formData, timestamp: new Date().toISOString() });
+      onSubmit({
+        ...formData,
+        timestamp: new Date().toISOString(),
+        incomplete: false,
+      });
+
       navigate("/personal");
     }
   };
@@ -2662,6 +2854,7 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
               />
             </svg>
           </button>
+
           <div className="px-4 py-1.5 bg-[#D6F3F4] rounded-full text-[10px] font-black text-[#172A3A] tracking-widest shadow-sm">
             {currentStepIndex + 1} / {visibleQuestions.length}
           </div>
@@ -2671,6 +2864,7 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
           <span className="text-[22px] font-black text-[#508991] uppercase tracking-[0.2em]">
             {q.section}
           </span>
+
           <h2
             className={`text-2xl font-black text-[#172A3A] leading-tight tracking-tight ${
               lang === "he" ? "text-right" : "text-left"
@@ -2678,6 +2872,7 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
           >
             {q.title[lang]}
           </h2>
+
           {q.help && (
             <div className="bg-[#D6F3F4]/50 p-4 rounded-2xl border-l-4 border-[#508991]">
               <p className="text-sm font-bold text-[#508991] leading-relaxed italic">
@@ -2710,6 +2905,7 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
                 </button>
               );
             })}
+
           {q.type === "multi-choice" &&
             q.options?.map((opt) => {
               const selected = formData[q.id] || [];
@@ -2735,6 +2931,7 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
                 </button>
               );
             })}
+
           {q.type === "scale" && (
             <div className="p-10 bg-[#D6F3F4] rounded-[48px] border border-white/20 shadow-sm space-y-6">
               <input
@@ -2760,6 +2957,7 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
               </div>
             </div>
           )}
+
           {q.type === "number" && (
             <input
               type="number"
@@ -2768,22 +2966,20 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
               max={q.max}
               onChange={(e) => {
                 const val = e.target.value;
-                // Allow empty string for backspace
                 if (val === "") {
                   setFormData({ ...formData, [q.id]: "" });
                   return;
                 }
                 const num = parseFloat(val);
-                // Strict validation preventing invalid input
                 if (q.min !== undefined && num < q.min) return;
                 if (q.max !== undefined && num > q.max) return;
-
                 setFormData({ ...formData, [q.id]: val });
               }}
               className="w-full p-10 bg-[#D6F3F4] rounded-[40px] text-6xl font-black tabular-nums border-none text-center focus:ring-4 focus:ring-[#508991]/20 outline-none shadow-sm"
               placeholder="0"
             />
           )}
+
           {q.type === "text" && (
             <textarea
               value={formData[q.id] || ""}
@@ -2800,7 +2996,7 @@ const Wizard: React.FC<{ lang: Language; onSubmit: (data: any) => void }> = ({
           )}
         </div>
       </div>
-      {/* Fallback Next Button at bottom just in case */}
+
       <button
         onClick={handleNext}
         disabled={!isStepValid()}
@@ -2846,6 +3042,35 @@ export default function App() {
   }, [history, lang]);
 
   const toggleLang = () => setLang((prev) => (prev === "he" ? "en" : "he"));
+  const fictionalDoctorMessages = [
+    {
+      id: "m1",
+      date: "2025-01-12 09:15",
+      doctor: { he: "ד״ר אורי גרינברג", en: "Dr. Uri Greenberg" },
+      message: {
+        he: "שלום, עברתי על הדיווח האחרון. המצב נראה יציב. אין צורך בשינוי תרופתי כרגע. נמשיך במעקב.",
+        en: "Hello, I reviewed the latest report. The condition appears stable. No medication changes are needed at this time. We will continue monitoring.",
+      },
+    },
+    {
+      id: "m2",
+      date: "2025-01-08 14:40",
+      doctor: { he: "ד״ר אורי גרינברג", en: "Dr. Uri Greenberg" },
+      message: {
+        he: "שימו לב לעלייה קלה בבלבול בשעות הערב. מומלץ להקפיד על שגרה קבועה ושינה מוקדמת.",
+        en: "Please note a slight increase in evening confusion. Maintaining a consistent routine and earlier sleep is recommended.",
+      },
+    },
+    {
+      id: "m3",
+      date: "2025-01-03 10:05",
+      doctor: { he: "ד״ר אורי גרינברג", en: "Dr. Uri Greenberg" },
+      message: {
+        he: "תודה על מילוי השאלון. המידע עוזר לנו לזהות שינויים מוקדם יותר.",
+        en: "Thank you for completing the questionnaire. This information helps us detect changes at an earlier stage.",
+      },
+    },
+  ];
 
   return (
     <HashRouter>
@@ -2997,13 +3222,26 @@ export default function App() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-32 text-center space-y-4 opacity-40">
-                    <div className="grayscale">
-                      <Logo className="w-24 h-24" />
-                    </div>
-                    <p className="font-bold text-[#172A3A] text-lg">
-                      {translations.noMessages[lang]}
-                    </p>
+                  <div className="space-y-4 py-6">
+                    {fictionalDoctorMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className="p-6 bg-white rounded-[28px] border border-slate-100 shadow-sm"
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="text-sm font-black text-[#172A3A]">
+                            {msg.doctor[lang]}
+                          </p>
+                          <p className="text-xs font-bold text-slate-400">
+                            {msg.date}
+                          </p>
+                        </div>
+
+                        <p className="text-sm font-bold text-[#508991] leading-relaxed">
+                          {msg.message[lang]}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
